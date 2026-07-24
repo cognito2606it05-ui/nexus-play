@@ -12,47 +12,19 @@ import { NexusAssistantModal } from '../components/NexusAssistantModal';
 import InstallAppPrompt from '../components/InstallAppPrompt';
 import { Translate } from '../state/LanguageContext';
 
-import StaticHomeScreen from '../screens/HomeScreen';
-import StaticReelsScreen from '../screens/ReelsScreen';
-import StaticNewsScreen from '../screens/NewsScreen';
-import StaticLiveScreen from '../screens/LiveScreen';
-import StaticProfileScreen from '../screens/ProfileScreen';
-import StaticLoginScreen from '../screens/LoginScreen';
-import StaticProfileGate from '../screens/ProfileGate';
-import StaticMoviesScreen from '../screens/MoviesScreen';
-
-const lazyScreen = (
-  webImport: () => Promise<{ default: React.ComponentType<any> }>,
-  nativeComponent: React.ComponentType<any>
-) => {
-  if (Platform.OS === 'web') {
-    const LazyComponent = React.lazy(webImport);
-    return (props: any) => (
-      <React.Suspense fallback={
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F172A' }}>
-          <ActivityIndicator color="#3B82F6" size="large" />
-        </View>
-      }>
-        <LazyComponent {...props} />
-      </React.Suspense>
-    );
-  }
-  return nativeComponent;
-};
-
-const HomeScreen = lazyScreen(() => import('../screens/HomeScreen'), StaticHomeScreen);
-const ReelsScreen = lazyScreen(() => import('../screens/ReelsScreen'), StaticReelsScreen);
-const NewsScreen = lazyScreen(() => import('../screens/NewsScreen'), StaticNewsScreen);
-const LiveScreen = lazyScreen(() => import('../screens/LiveScreen'), StaticLiveScreen);
-const ProfileScreen = lazyScreen(() => import('../screens/ProfileScreen'), StaticProfileScreen);
-const LoginScreen = lazyScreen(() => import('../screens/LoginScreen'), StaticLoginScreen);
-const ProfileGate = lazyScreen(() => import('../screens/ProfileGate'), StaticProfileGate);
-const MoviesScreen = lazyScreen(() => import('../screens/MoviesScreen'), StaticMoviesScreen);
-const ReporterBroadcastScreen = lazyScreen(() => import('../screens/ReporterBroadcastScreen'), null as any);
-const StudioDashboardScreen = lazyScreen(() => import('../screens/StudioDashboardScreen'), null as any);
-const RecordedLivePlayerScreen = lazyScreen(() => import('../screens/RecordedLivePlayerScreen'), null as any);
-const TopStoriesAdminScreen = lazyScreen(() => import('../screens/TopStoriesAdminScreen'), null as any);
-const SuperAdminDashboardScreen = lazyScreen(() => import('../screens/SuperAdminDashboardScreen'), null as any);
+import HomeScreen from '../screens/HomeScreen';
+import ReelsScreen from '../screens/ReelsScreen';
+import NewsScreen from '../screens/NewsScreen';
+import LiveScreen from '../screens/LiveScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import LoginScreen from '../screens/LoginScreen';
+import ProfileGate from '../screens/ProfileGate';
+import MoviesScreen from '../screens/MoviesScreen';
+import ReporterBroadcastScreen from '../screens/ReporterBroadcastScreen';
+import StudioDashboardScreen from '../screens/StudioDashboardScreen';
+import RecordedLivePlayerScreen from '../screens/RecordedLivePlayerScreen';
+import TopStoriesAdminScreen from '../screens/TopStoriesAdminScreen';
+import SuperAdminDashboardScreen from '../screens/SuperAdminDashboardScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -91,7 +63,7 @@ const SVG_PATHS: Record<string, { paths: string[]; viewbox?: string; color: stri
   },
   Profile: {
     paths: [
-      'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'
+      'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'
     ],
     color: '#0D47A1' // Royal Blue
   }
@@ -159,61 +131,51 @@ function TabIcon({ name, color, focused }: { name: string; color: string; focuse
 }
 
 // Resolution-safe require statements for assets in parent directory
-const INTRO_VIDEO = require('../../assets/intro.mp4');
 const PRIMARY_LOGO = require('../../assets/nexuslogo.png');
-const SPLASH_LOGO = require('../../assets/logo.png');
 
 function CustomSplashScreen({ onComplete, styles }: { onComplete: () => void; styles: any }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.2)).current;
+  const scaleAnim = useRef(new Animated.Value(0.75)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // 1. Fade in and scale up the logo smoothly
+    // Fast, battery-optimized GPU accelerated animation sequence
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1800,
+        duration: 400,
         useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.spring(scaleAnim, {
-        toValue: 1.35,
-        friction: 5,
-        tension: 18,
+        toValue: 1,
+        friction: 6,
+        tension: 40,
         useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(progressAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: false,
       }),
     ]).start();
 
-    // 2. Fade out and expand logo right before transition ends
-    const fadeOutTimer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-        Animated.timing(scaleAnim, {
-          toValue: 1.9,
-          duration: 600,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-      ]).start();
-    }, 3800);
-
-    const timer = setTimeout(onComplete, 4500); // 4.5s intro duration
-    return () => {
-      clearTimeout(fadeOutTimer);
-      clearTimeout(timer);
-    };
+    // Finish splash after 1.2s
+    const timer = setTimeout(onComplete, 1200);
+    return () => clearTimeout(timer);
   }, [onComplete]);
+
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
 
   return (
     <LinearGradient
-      colors={['#0D47A1', '#0B2240', '#030F26']}
+      colors={['#090D1A', '#0B1528', '#02040A']}
       style={styles.splashContainer}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
     >
-      {/* Glassmorphic logo and branding overlay */}
       <View style={styles.splashOverlay}>
         <Animated.Image 
           source={PRIMARY_LOGO} 
@@ -226,7 +188,12 @@ function CustomSplashScreen({ onComplete, styles }: { onComplete: () => void; st
           ]} 
           resizeMode="contain" 
         />
-        <ActivityIndicator color="#FFFFFF" size="small" style={styles.loader} />
+        <Animated.Text style={[styles.splashTagline, { opacity: fadeAnim }]}>
+          BBC & CNN-INSPIRED PREMIUM NEWS & OTT HUB
+        </Animated.Text>
+        <View style={styles.progressBarBg}>
+          <Animated.View style={[styles.progressBarFill, { width: progressWidth }]} />
+        </View>
       </View>
     </LinearGradient>
   );
@@ -512,26 +479,40 @@ export default function RootNavigator() {
 }
 
 const getStyles = (colors: any, width: number, insets: any, isDark = false) => StyleSheet.create({
-  splashContainer: { flex: 1, backgroundColor: '#000', position: 'relative' },
+  splashContainer: { flex: 1, backgroundColor: '#090D1A', position: 'relative' },
   splashVideo: { ...StyleSheet.absoluteFill },
   splashOverlay: {
     ...StyleSheet.absoluteFill,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 24,
   },
   primaryLogo: {
-    width: 330,
-    height: 110,
-    marginBottom: 10,
+    width: 280,
+    height: 90,
+    marginBottom: 12,
   },
-  secondaryLogo: {
-    width: 120,
-    height: 40,
-    opacity: 0.8,
+  splashTagline: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 36,
   },
-  loader: {
-    marginTop: 30,
+  progressBarBg: {
+    width: 180,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#3B82F6',
+    borderRadius: 2,
   },
   tabBarContainer: {
     position: 'absolute',
