@@ -16,7 +16,7 @@ const nmsConfig = {
     ping_timeout: 60
   },
   http: {
-    port: 8000,
+    port: Number(process.env.RTMP_HTTP_PORT) || 9005,
     allow_origin: '*'
   }
 };
