@@ -12,10 +12,10 @@ const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp']);
 
 
 function downloadFile(url, dest) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     https.get(url, (res) => {
       if (res.statusCode !== 200) {
-        reject(new Error(`Failed to download: ${res.statusCode}`));
+        resolve();
         return;
       }
       const chunks = [];
@@ -25,10 +25,10 @@ function downloadFile(url, dest) {
           writeFileSync(dest, Buffer.concat(chunks));
           resolve();
         } catch (e) {
-          reject(e);
+          resolve();
         }
       });
-    }).on('error', reject);
+    }).on('error', () => resolve());
   });
 }
 
