@@ -1,4 +1,3 @@
-import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,7 +33,15 @@ if (isPg) {
   startPgSyncProxy();
 } else {
   console.log('Local Mode: Connecting to local SQLite database...');
-  sqliteDb = new DatabaseSync(config.dbFile);
+  let DatabaseClient;
+  try {
+    const mod = await import('node:sqlite');
+    DatabaseClient = mod.DatabaseSync;
+  } catch (e) {
+    const mod = await import('better-sqlite3');
+    DatabaseClient = mod.default;
+  }
+  sqliteDb = new DatabaseClient(config.dbFile);
   sqliteDb.exec('PRAGMA journal_mode = WAL;');
   sqliteDb.exec('PRAGMA foreign_keys = ON;');
   sqliteDb.exec('PRAGMA busy_timeout = 5000;');
