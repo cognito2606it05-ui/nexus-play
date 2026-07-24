@@ -735,7 +735,7 @@ export default function ProfileScreen() {
       <ScrollView 
         style={[styles.container, { backgroundColor: 'transparent' }]}
         contentContainerStyle={{ 
-          paddingBottom: Math.max(insets.bottom + 80, 110), 
+          paddingBottom: Math.max((insets?.bottom ?? 0) + 80, 110), 
           paddingTop: isDesktop ? 96 : 76 
         }}
       >

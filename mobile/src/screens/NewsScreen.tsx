@@ -1693,7 +1693,7 @@ export default function NewsScreen({ route }: { route?: any }) {
               <FlatList
                 data={filteredNews}
                 keyExtractor={(n) => n.id}
-                contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom + 80, 110) }}
+                contentContainerStyle={{ padding: 16, paddingBottom: Math.max((insets?.bottom ?? 0) + 80, 110) }}
                 renderItem={({ item }) => {
                   const needsBlur = item.needsBlur;
                   const canDelete = item.source === activeProfile?.name || user?.role === 'super_admin';
@@ -1827,7 +1827,7 @@ export default function NewsScreen({ route }: { route?: any }) {
               <FlatList
                 data={filteredLiveSessions}
                 keyExtractor={(n) => n.id}
-                contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom + 80, 110) }}
+                contentContainerStyle={{ padding: 16, paddingBottom: Math.max((insets?.bottom ?? 0) + 80, 110) }}
                 renderItem={({ item }) => {
                   const needsBlur = item.needsBlur;
                   // ONLY Super Admins can delete Past Live stream recordings
@@ -1934,7 +1934,7 @@ export default function NewsScreen({ route }: { route?: any }) {
               <FlatList
                 data={filteredPosts}
                 keyExtractor={(p) => p.id}
-                contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom + 80, 110) }}
+                contentContainerStyle={{ padding: 16, paddingBottom: Math.max((insets?.bottom ?? 0) + 80, 110) }}
                 renderItem={({ item }) => {
                   const needsBlur = item.needsBlur;
                   const canDelete = item.profile_id === activeProfile?.id || user?.role === 'super_admin';
@@ -2047,7 +2047,7 @@ export default function NewsScreen({ route }: { route?: any }) {
               <FlatList
                 data={savedLives}
                 keyExtractor={(s) => s.id}
-                contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom + 80, 110) }}
+                contentContainerStyle={{ padding: 16, paddingBottom: Math.max((insets?.bottom ?? 0) + 80, 110) }}
                 renderItem={({ item }) => {
                   const needsPlay = expanded === item.id && item.videoUrl && isFocused;
                   return (
@@ -2967,7 +2967,7 @@ const getStyles = (colors: any, insets: any, width: number) => {
     fill: { flex: 1, backgroundColor: colors.bg },
     headerRow: {
       paddingHorizontal: 16,
-      paddingTop: Math.max(insets.top, 12) + 96,
+      paddingTop: Math.max((insets?.top ?? 0), 12) + 96,
       paddingBottom: 8,
       flexDirection: 'row',
       alignItems: 'center',

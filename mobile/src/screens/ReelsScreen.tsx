@@ -510,7 +510,7 @@ export default function ReelsScreen() {
         styles.headerRow,
         isDesktop 
           ? { height: 60, paddingTop: 0, marginTop: 78, backgroundColor: 'transparent' }
-          : { height: 60 + insets.top, paddingTop: insets.top }
+          : { height: 60 + (insets?.top ?? 0), paddingTop: (insets?.top ?? 0) }
       ]}>
         <Text style={styles.header}>Reels</Text>
         <HoverPressable style={styles.uploadHeaderBtn} onPress={() => setShowUploadModal(true)}>

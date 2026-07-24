@@ -120,7 +120,7 @@ export default function LoginScreen() {
   return (
     <LinearGradient colors={['#090D1A', '#0F172A', '#02040A']} style={styles.fill}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.fill}>
-        <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: Math.max(insets.top + 20, 32), paddingBottom: Math.max(insets.bottom + 20, 32) }]} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: Math.max((insets?.top ?? 0) + 20, 32), paddingBottom: Math.max((insets?.bottom ?? 0) + 20, 32) }]} keyboardShouldPersistTaps="handled">
           
           <View style={styles.headerContainer}>
             <Image source={BRAND_LOGO} style={styles.logo as any} resizeMode="contain" />

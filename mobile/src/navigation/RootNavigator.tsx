@@ -516,7 +516,7 @@ const getStyles = (colors: any, width: number, insets: any, isDark = false) => S
   },
   tabBarContainer: {
     position: 'absolute',
-    bottom: Math.max(insets.bottom, width < 480 ? 12 : 18),
+    bottom: Math.max((insets?.bottom ?? 0), width < 480 ? 12 : 18),
     left: width < 480 ? 12 : 20,
     right: width < 480 ? 12 : 20,
     backgroundColor: isDark ? 'rgba(30, 41, 59, 0.75)' : 'rgba(255, 255, 255, 0.75)',
