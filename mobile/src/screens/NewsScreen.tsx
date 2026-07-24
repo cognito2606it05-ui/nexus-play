@@ -2964,7 +2964,16 @@ export default function NewsScreen({ route }: { route?: any }) {
 const getStyles = (colors: any, insets: any, width: number) => {
   const isDesktop = Platform.OS === 'web' && width >= 768;
   return StyleSheet.create({
-    fill: { flex: 1, backgroundColor: colors.bg },
+    fill: { 
+      flex: 1, 
+      backgroundColor: colors.bg,
+      ...Platform.select({
+        web: {
+          minHeight: '100vh',
+          width: '100%',
+        }
+      }) as any,
+    },
     headerRow: {
       paddingHorizontal: 16,
       paddingTop: Math.max((insets?.top ?? 0), 12) + 96,

@@ -416,8 +416,10 @@ function MainTabs() {
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        sceneStyle: {
-          paddingLeft: 0,
+        sceneContainerStyle: {
+          flex: 1,
+          minHeight: Platform.OS === 'web' ? '100vh' : '100%',
+          width: '100%',
           backgroundColor: 'transparent',
         }
       }}
@@ -471,7 +473,18 @@ export default function RootNavigator() {
   if (!user) return <LoginScreen />;
   if (!activeProfile) return <ProfileGate />;
   return (
-    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+    <View style={{ 
+      flex: 1, 
+      backgroundColor: 'transparent',
+      ...Platform.select({
+        web: {
+          minHeight: '100vh',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+        }
+      }) as any
+    }}>
       <MainTabs />
       <InstallAppPrompt />
     </View>

@@ -2654,6 +2654,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     ...Platform.select({
       web: {
         width: '100%',
+        minHeight: '100vh',
       }
     }) as any,
   },

@@ -2105,6 +2105,12 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    ...Platform.select({
+      web: {
+        minHeight: '100vh',
+        width: '100%',
+      }
+    }) as any,
   },
   input: {
     height: 48,

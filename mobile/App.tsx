@@ -24,7 +24,7 @@ const linking = {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
+    <SafeAreaProvider style={{ flex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <AuthProvider>
         <ThemeProvider>
           <LanguageProvider>
