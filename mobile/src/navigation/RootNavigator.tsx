@@ -9,6 +9,7 @@ import { useTheme } from '../state/ThemeContext';
 
 import { HoverPressable } from '../components/HoverPressable';
 import { NexusAssistantModal } from '../components/NexusAssistantModal';
+import InstallAppPrompt from '../components/InstallAppPrompt';
 import { Translate } from '../state/LanguageContext';
 
 import StaticHomeScreen from '../screens/HomeScreen';
@@ -507,6 +508,7 @@ export default function RootNavigator() {
   return (
     <View style={{ flex: 1, backgroundColor: 'transparent' }}>
       <MainTabs />
+      <InstallAppPrompt />
     </View>
   );
 }
