@@ -45,7 +45,7 @@ export default function MoviesScreen() {
     setLoading(true);
     api.getMovies(genre === 'All' ? undefined : genre)
       .then((res) => { setMovies(res.data); setGenres(['All', ...res.genres]); })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, [genre]);
 
@@ -64,8 +64,8 @@ export default function MoviesScreen() {
   const toggleSave = (m: Movie) => {
     setSaved((prev) => {
       const next = new Set(prev);
-      if (next.has(m.id)) { next.delete(m.id); api.removeFromWatchlist('movie', m.id).catch(() => {}); }
-      else { next.add(m.id); api.addToWatchlist({ contentType: 'movie', contentId: m.id, title: m.title, thumbnailUrl: m.posterUrl, category: 'later' }).catch(() => {}); }
+      if (next.has(m.id)) { next.delete(m.id); api.removeFromWatchlist('movie', m.id).catch(() => { }); }
+      else { next.add(m.id); api.addToWatchlist({ contentType: 'movie', contentId: m.id, title: m.title, thumbnailUrl: m.posterUrl, category: 'later' }).catch(() => { }); }
       return next;
     });
   };
@@ -191,8 +191,8 @@ export default function MoviesScreen() {
 }
 
 const styles = StyleSheet.create({
-  fill: { 
-    flex: 1, 
+  fill: {
+    flex: 1,
     backgroundColor: colors.bg,
     ...Platform.select({
       web: {
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   modalBtnGhostText: { color: '#fff', fontWeight: '600' },
   closeBtn: { position: 'absolute', top: 10, right: 10, width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(0,0,0,0.55)', alignItems: 'center', justifyContent: 'center' },
   closeGlyph: { color: '#fff', fontSize: 16 },
-  
+
   // Recommendations shelf styles
   recSection: { marginVertical: 14, width: '100%' },
   recTitle: { color: '#fff', fontSize: 18, fontWeight: '700', paddingHorizontal: 16, marginBottom: 10 },

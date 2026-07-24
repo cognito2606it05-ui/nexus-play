@@ -95,7 +95,7 @@ function SvgIcon({ name, color, size = 24 }: { name: string; color: string; size
 
 function TabIcon({ name, color, focused }: { name: string; color: string; focused: boolean }) {
   const scale = useRef(new Animated.Value(focused ? 1.25 : 1)).current;
-  
+
   useEffect(() => {
     Animated.spring(scale, {
       toValue: focused ? 1.28 : 1,
@@ -111,19 +111,19 @@ function TabIcon({ name, color, focused }: { name: string; color: string; focuse
     <Animated.View style={{ transform: [{ scale }], alignItems: 'center', justifyContent: 'center' }}>
       <SvgIcon name={name} color={activeColor} size={24} />
       {focused && (
-        <View 
-          style={{ 
-            position: 'absolute', 
-            bottom: -8, 
-            width: 5, 
-            height: 5, 
-            borderRadius: 2.5, 
+        <View
+          style={{
+            position: 'absolute',
+            bottom: -8,
+            width: 5,
+            height: 5,
+            borderRadius: 2.5,
             backgroundColor: SVG_PATHS[name].color,
             shadowColor: SVG_PATHS[name].color,
             shadowOpacity: 0.8,
             shadowRadius: 4,
             elevation: 4
-          }} 
+          }}
         />
       )}
     </Animated.View>
@@ -177,16 +177,16 @@ function CustomSplashScreen({ onComplete, styles }: { onComplete: () => void; st
       end={{ x: 0, y: 1 }}
     >
       <View style={styles.splashOverlay}>
-        <Animated.Image 
-          source={PRIMARY_LOGO} 
+        <Animated.Image
+          source={PRIMARY_LOGO}
           style={[
             styles.primaryLogo,
             {
               opacity: fadeAnim,
               transform: [{ scale: scaleAnim }],
             }
-          ]} 
-          resizeMode="contain" 
+          ]}
+          resizeMode="contain"
         />
         <Animated.Text style={[styles.splashTagline, { opacity: fadeAnim }]}>
           BBC & CNN-INSPIRED PREMIUM NEWS & OTT HUB
@@ -239,7 +239,7 @@ function LivePulseDot({ styles }: { styles: any }) {
 function HoverTabButton({ name, focused, isHovered, onPress, onLongPress, onMouseEnter, onMouseLeave, styles, isDesktop }: any) {
   const scale = useRef(new Animated.Value(focused ? 1.15 : 1)).current;
   const { width } = useWindowDimensions();
-  
+
   useEffect(() => {
     Animated.spring(scale, {
       toValue: focused ? 1.15 : (isHovered ? 1.08 : 1),
@@ -249,8 +249,8 @@ function HoverTabButton({ name, focused, isHovered, onPress, onLongPress, onMous
     }).start();
   }, [focused, isHovered]);
 
-  const activeColor = focused 
-    ? SVG_PATHS[name].color 
+  const activeColor = focused
+    ? SVG_PATHS[name].color
     : (isHovered ? SVG_PATHS[name].color : '#7c7e8c');
 
   return (
@@ -263,10 +263,10 @@ function HoverTabButton({ name, focused, isHovered, onPress, onLongPress, onMous
       } as any : {})}
       style={isDesktop ? styles.tabButtonDesktop : styles.tabButton}
     >
-      <Animated.View 
+      <Animated.View
         style={[
-          isDesktop ? styles.iconContainerDesktop : styles.iconContainer, 
-          { 
+          isDesktop ? styles.iconContainerDesktop : styles.iconContainer,
+          {
             transform: [{ scale }],
             shadowColor: SVG_PATHS[name].color,
             shadowOffset: { width: 0, height: 0 },
@@ -296,17 +296,17 @@ function HoverTabButton({ name, focused, isHovered, onPress, onLongPress, onMous
         )}
         {name === 'Live' && <LivePulseDot styles={styles} />}
         {focused && !isDesktop && (
-          <View 
+          <View
             style={[
-              styles.dot, 
-              { 
+              styles.dot,
+              {
                 backgroundColor: SVG_PATHS[name].color,
                 shadowColor: SVG_PATHS[name].color,
                 shadowOpacity: 0.8,
                 shadowRadius: 4,
                 elevation: 4
               }
-            ]} 
+            ]}
           />
         )}
       </Animated.View>
@@ -345,13 +345,13 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
   if (isDesktop) return null;
 
   return (
-    <View 
+    <View
       style={isDesktop ? styles.sidebarContainer : styles.tabBarContainer}
       {...(Platform.OS === 'web' ? {
         onMouseMove: handleMouseMove,
         onMouseEnter: handleMouseEnter,
         onMouseLeave: handleMouseLeave,
-        className: isDesktop 
+        className: isDesktop
           ? 'transition-all duration-500 ease-out border border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.3)]'
           : 'transition-all duration-500 ease-out hover:border-white/20 hover:shadow-[0_0_30px_rgba(31,156,255,0.25)]'
       } as any : {})}
@@ -455,7 +455,7 @@ export default function RootNavigator() {
         link.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap';
         link.rel = 'stylesheet';
         document.head.appendChild(link);
-        
+
         const style = document.createElement('style');
         style.textContent = `
           * {
@@ -463,7 +463,7 @@ export default function RootNavigator() {
           }
         `;
         document.head.appendChild(style);
-      } catch (e) {}
+      } catch (e) { }
     }
   }, []);
 
@@ -473,8 +473,8 @@ export default function RootNavigator() {
   if (!user) return <LoginScreen />;
   if (!activeProfile) return <ProfileGate />;
   return (
-    <View style={{ 
-      flex: 1, 
+    <View style={{
+      flex: 1,
       backgroundColor: 'transparent',
       ...Platform.select({
         web: {

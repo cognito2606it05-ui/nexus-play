@@ -24,22 +24,22 @@ import * as DocumentPicker from 'expo-document-picker';
 export default function TopStoriesAdminScreen({ navigation, isNested = false }: any) {
   const { colors, isDark } = useTheme();
   const { user } = useAuth();
-  
+
   const [stories, setStories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState(''); 
+  const [typeFilter, setTypeFilter] = useState('');
   const [sortBy, setSortBy] = useState('priority');
-  
+
   // Modals
   const [showFormModal, setShowFormModal] = useState(false);
   const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showAnalyticsModal, setShowAnalyticsModal] = useState(false);
-  
+
   // Active selected story for Preview or Analytics
   const [selectedStory, setSelectedStory] = useState<any | null>(null);
 
@@ -63,7 +63,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
   const [seoTitle, setSeoTitle] = useState('');
   const [seoDescription, setSeoDescription] = useState('');
   const [seoKeywords, setSeoKeywords] = useState('');
-  
+
   // Toggles
   const [isBreaking, setIsBreaking] = useState(false);
   const [isTopStory, setIsTopStory] = useState(true);
@@ -362,7 +362,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
       isBreaking: story.is_breaking === 1,
       isTopStory: story.is_top_story === 1,
       isTrending: story.is_trending === 1,
-      status: 'draft', 
+      status: 'draft',
       priority: String(Number(story.priority) + 1),
     };
 
@@ -709,7 +709,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
               </Pressable>
             ))}
           </ScrollView>
-          
+
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
             <Pressable style={[styles.filterPill, !statusFilter && styles.filterPillActive]} onPress={() => setStatusFilter('')}>
               <Text style={styles.filterPillText}>All Status</Text>
@@ -869,12 +869,12 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
               )}
 
               <Text style={styles.label}>Headline *</Text>
-              <TextInput 
-                style={[styles.input, headlineError && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }]} 
-                value={headline} 
-                onChangeText={(txt) => { setHeadline(txt); setHeadlineError(false); }} 
-                placeholder="Enter premium headline" 
-                placeholderTextColor="rgba(255,255,255,0.2)" 
+              <TextInput
+                style={[styles.input, headlineError && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }]}
+                value={headline}
+                onChangeText={(txt) => { setHeadline(txt); setHeadlineError(false); }}
+                placeholder="Enter premium headline"
+                placeholderTextColor="rgba(255,255,255,0.2)"
               />
               {headlineError && (
                 <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '800', marginTop: -6, marginBottom: 8, textTransform: 'uppercase' }}>
@@ -1162,7 +1162,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
               {selectedStory && (
                 <View>
                   <Text style={{ color: '#fff', fontSize: 15, fontWeight: '700', marginBottom: 12 }}>{selectedStory.headline}</Text>
-                  
+
                   {/* Grid of KPIs */}
                   <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
                     <View style={styles.kpiBox}>
