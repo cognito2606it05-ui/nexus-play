@@ -9,10 +9,29 @@ export const PROJECT_ROOT = resolve(__dirname, '../..');
 export const API_ROOT = resolve(__dirname, '..');
 
 // Load environment variables locally if .env exists
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 const envPath = resolve(API_ROOT, '.env');
 if (existsSync(envPath)) {
-  process.loadEnvFile(envPath);
+  try {
+    if (typeof process.loadEnvFile === 'function') {
+      process.loadEnvFile(envPath);
+    } else {
+      const envContent = readFileSync(envPath, 'utf8');
+      envContent.split(/\r?\n/).forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed && !trimmed.startsWith('#')) {
+          const parts = trimmed.split('=');
+          const key = parts[0].trim();
+          const value = parts.slice(1).join('=').trim().replace(/^["']|["']$/g, '');
+          if (key && !process.env[key]) {
+            process.env[key] = value;
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.error('[Config] Error loading .env:', err);
+  }
 }
 
 export const config = {
@@ -29,7 +48,7 @@ export const config = {
     avatars: resolve(PROJECT_ROOT, 'sample users'),
   },
 
-  dbFile: resolve(API_ROOT, 'nexus-play-api-dev.db'),
+  dbFile: process.env.DB_FILE || resolve(API_ROOT, 'nexus-play-api-dev.db'),
 };
 
 // Build an absolute URL for a media asset from the incoming request,
