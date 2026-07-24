@@ -191,7 +191,16 @@ export default function MoviesScreen() {
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1, backgroundColor: colors.bg },
+  fill: { 
+    flex: 1, 
+    backgroundColor: colors.bg,
+    ...Platform.select({
+      web: {
+        minHeight: '100vh',
+        width: '100%',
+      }
+    }) as any,
+  },
   header: { color: '#fff', fontSize: 26, fontWeight: '800', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
   chipsWrap: { paddingVertical: 6 },
   chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 18, backgroundColor: colors.surfaceAlt, marginRight: 8 },

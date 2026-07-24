@@ -25,8 +25,12 @@ const nms = new NodeMediaServer(nmsConfig);
 const activeTranscoders = new Map();
 
 export function startRtmpServer() {
-  nms.run();
-  console.log('[RTMP Server] Started on rtmp://localhost:1935/live');
+  try {
+    nms.run();
+    console.log('[RTMP Server] Started on rtmp://localhost:1935/live');
+  } catch (e) {
+    console.warn('[RTMP Server] Could not start RTMP server (port 1935 may be in use):', e.message);
+  }
 }
 
 export function stopRtmpServer() {

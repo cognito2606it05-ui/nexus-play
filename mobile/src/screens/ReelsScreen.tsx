@@ -780,7 +780,16 @@ export default function ReelsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000',
+    ...Platform.select({
+      web: {
+        minHeight: '100vh',
+        width: '100%',
+      }
+    }) as any,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   errTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 8 },
   errMsg: { color: colors.textDim, textAlign: 'center', marginBottom: 6 },
