@@ -480,23 +480,21 @@ export default function RootNavigator() {
   useEffect(() => {
     // Session is persisted; no forced signOut on reload for better testing experience
 
-    if (Platform.OS === 'web') {
-      const link = document.createElement('link');
-      link.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap';
-      link.rel = 'stylesheet';
-      document.head.appendChild(link);
-      
-      const style = document.createElement('style');
-      style.textContent = `
-        * {
-          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-        }
-      `;
-      document.head.appendChild(style);
-
-      const script = document.createElement('script');
-      script.src = 'https://cdn.tailwindcss.com';
-      document.head.appendChild(script);
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      try {
+        const link = document.createElement('link');
+        link.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap';
+        link.rel = 'stylesheet';
+        document.head.appendChild(link);
+        
+        const style = document.createElement('style');
+        style.textContent = `
+          * {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+          }
+        `;
+        document.head.appendChild(style);
+      } catch (e) {}
     }
   }, []);
 

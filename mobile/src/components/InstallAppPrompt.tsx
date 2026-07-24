@@ -198,7 +198,14 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   iosGuideOverlay: {
-    position: 'fixed' as any,
+    ...Platform.select({
+      web: {
+        position: 'fixed',
+      } as any,
+      default: {
+        position: 'absolute',
+      }
+    }),
     top: 0,
     bottom: 0,
     left: 0,
