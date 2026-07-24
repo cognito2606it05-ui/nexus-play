@@ -1,0 +1,10 @@
+import { DatabaseSync } from 'node:sqlite';
+console.log('Imported DatabaseSync');
+const db = new DatabaseSync(':memory:');
+console.log('Initialized in-memory database');
+db.exec('CREATE TABLE test (id TEXT PRIMARY KEY);');
+console.log('Executed CREATE TABLE');
+db.exec("INSERT INTO test (id) VALUES ('1')");
+console.log('Executed INSERT');
+const res = db.prepare('SELECT * FROM test').all();
+console.log('Selected data:', res);

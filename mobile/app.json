@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Nexus Play",
+    "slug": "nexus-play",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "../logo.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "../logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "../logo.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "../logo.png",
+      "name": "Nexus Play",
+      "shortName": "Nexus Play",
+      "themeColor": "#0D47A1",
+      "backgroundColor": "#000000",
+      "display": "standalone"
+    }
+  }
+}

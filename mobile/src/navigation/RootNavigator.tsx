@@ -1,0 +1,702 @@
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, ActivityIndicator, StyleSheet, Image, Platform, Animated, Pressable, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '../state/AuthContext';
+import { useTheme } from '../state/ThemeContext';
+
+import { HoverPressable } from '../components/HoverPressable';
+import { NexusAssistantModal } from '../components/NexusAssistantModal';
+import { Translate } from '../state/LanguageContext';
+
+import StaticHomeScreen from '../screens/HomeScreen';
+import StaticReelsScreen from '../screens/ReelsScreen';
+import StaticNewsScreen from '../screens/NewsScreen';
+import StaticLiveScreen from '../screens/LiveScreen';
+import StaticProfileScreen from '../screens/ProfileScreen';
+import StaticLoginScreen from '../screens/LoginScreen';
+import StaticProfileGate from '../screens/ProfileGate';
+import StaticMoviesScreen from '../screens/MoviesScreen';
+
+const lazyScreen = (
+  webImport: () => Promise<{ default: React.ComponentType<any> }>,
+  nativeComponent: React.ComponentType<any>
+) => {
+  if (Platform.OS === 'web') {
+    const LazyComponent = React.lazy(webImport);
+    return (props: any) => (
+      <React.Suspense fallback={
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F172A' }}>
+          <ActivityIndicator color="#3B82F6" size="large" />
+        </View>
+      }>
+        <LazyComponent {...props} />
+      </React.Suspense>
+    );
+  }
+  return nativeComponent;
+};
+
+const HomeScreen = lazyScreen(() => import('../screens/HomeScreen'), StaticHomeScreen);
+const ReelsScreen = lazyScreen(() => import('../screens/ReelsScreen'), StaticReelsScreen);
+const NewsScreen = lazyScreen(() => import('../screens/NewsScreen'), StaticNewsScreen);
+const LiveScreen = lazyScreen(() => import('../screens/LiveScreen'), StaticLiveScreen);
+const ProfileScreen = lazyScreen(() => import('../screens/ProfileScreen'), StaticProfileScreen);
+const LoginScreen = lazyScreen(() => import('../screens/LoginScreen'), StaticLoginScreen);
+const ProfileGate = lazyScreen(() => import('../screens/ProfileGate'), StaticProfileGate);
+const MoviesScreen = lazyScreen(() => import('../screens/MoviesScreen'), StaticMoviesScreen);
+const ReporterBroadcastScreen = lazyScreen(() => import('../screens/ReporterBroadcastScreen'), null as any);
+const StudioDashboardScreen = lazyScreen(() => import('../screens/StudioDashboardScreen'), null as any);
+const RecordedLivePlayerScreen = lazyScreen(() => import('../screens/RecordedLivePlayerScreen'), null as any);
+const TopStoriesAdminScreen = lazyScreen(() => import('../screens/TopStoriesAdminScreen'), null as any);
+const SuperAdminDashboardScreen = lazyScreen(() => import('../screens/SuperAdminDashboardScreen'), null as any);
+
+const Tab = createBottomTabNavigator();
+
+const ICONS: Record<string, string> = {
+  Home: '⌂',
+  Reels: '▶',
+  Live: '◉',
+  News: '▤',
+  Profile: '👤',
+};
+
+const SVG_PATHS: Record<string, { paths: string[]; viewbox?: string; color: string }> = {
+  Home: {
+    paths: [
+      'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z'
+    ],
+    color: '#0D47A1' // Royal Blue
+  },
+  Reels: {
+    paths: [
+      'M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z'
+    ],
+    color: '#E040FB' // Vibrant Purple for Reels
+  },
+  Live: {
+    paths: [
+      'M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z'
+    ],
+    color: '#D32F2F' // Live Red
+  },
+  News: {
+    paths: [
+      'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z'
+    ],
+    color: '#0D47A1' // Royal Blue
+  },
+  Profile: {
+    paths: [
+      'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'
+    ],
+    color: '#0D47A1' // Royal Blue
+  }
+};
+
+function SvgIcon({ name, color, size = 24 }: { name: string; color: string; size?: number }) {
+  const config = SVG_PATHS[name];
+  if (!config) return null;
+
+  if (Platform.OS === 'web') {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox={config.viewbox || "0 0 24 24"}
+        fill="currentColor"
+        style={{ color: color, filter: `drop-shadow(0px 0px 5px ${color}aa)` }}
+      >
+        {config.paths.map((p, idx) => (
+          <path key={idx} d={p} />
+        ))}
+      </svg>
+    );
+  }
+
+  // Native fallback
+  return <Text style={{ fontSize: size, color }}>{ICONS[name]}</Text>;
+}
+
+function TabIcon({ name, color, focused }: { name: string; color: string; focused: boolean }) {
+  const scale = useRef(new Animated.Value(focused ? 1.25 : 1)).current;
+  
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: focused ? 1.28 : 1,
+      friction: 4,
+      tension: 45,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [focused]);
+
+  const activeColor = focused ? SVG_PATHS[name].color : 'rgba(124, 126, 140, 0.7)';
+
+  return (
+    <Animated.View style={{ transform: [{ scale }], alignItems: 'center', justifyContent: 'center' }}>
+      <SvgIcon name={name} color={activeColor} size={24} />
+      {focused && (
+        <View 
+          style={{ 
+            position: 'absolute', 
+            bottom: -8, 
+            width: 5, 
+            height: 5, 
+            borderRadius: 2.5, 
+            backgroundColor: SVG_PATHS[name].color,
+            shadowColor: SVG_PATHS[name].color,
+            shadowOpacity: 0.8,
+            shadowRadius: 4,
+            elevation: 4
+          }} 
+        />
+      )}
+    </Animated.View>
+  );
+}
+
+// Resolution-safe require statements for assets in parent directory
+const INTRO_VIDEO = require('../../assets/intro.mp4');
+const PRIMARY_LOGO = require('../../assets/nexuslogo.png');
+const SPLASH_LOGO = require('../../assets/logo.png');
+
+function CustomSplashScreen({ onComplete, styles }: { onComplete: () => void; styles: any }) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.2)).current;
+
+  useEffect(() => {
+    // 1. Fade in and scale up the logo smoothly
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1800,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1.35,
+        friction: 5,
+        tension: 18,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start();
+
+    // 2. Fade out and expand logo right before transition ends
+    const fadeOutTimer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(scaleAnim, {
+          toValue: 1.9,
+          duration: 600,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]).start();
+    }, 3800);
+
+    const timer = setTimeout(onComplete, 4500); // 4.5s intro duration
+    return () => {
+      clearTimeout(fadeOutTimer);
+      clearTimeout(timer);
+    };
+  }, [onComplete]);
+
+  return (
+    <LinearGradient
+      colors={['#0D47A1', '#0B2240', '#030F26']}
+      style={styles.splashContainer}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+    >
+      {/* Glassmorphic logo and branding overlay */}
+      <View style={styles.splashOverlay}>
+        <Animated.Image 
+          source={PRIMARY_LOGO} 
+          style={[
+            styles.primaryLogo,
+            {
+              opacity: fadeAnim,
+              transform: [{ scale: scaleAnim }],
+            }
+          ]} 
+          resizeMode="contain" 
+        />
+        <ActivityIndicator color="#FFFFFF" size="small" style={styles.loader} />
+      </View>
+    </LinearGradient>
+  );
+}
+
+function LivePulseDot({ styles }: { styles: any }) {
+  const pulseScale = useRef(new Animated.Value(0.8)).current;
+  const pulseOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.parallel([
+        Animated.timing(pulseScale, {
+          toValue: 2.5,
+          duration: 1400,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.timing(pulseOpacity, {
+          toValue: 0,
+          duration: 1400,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <View style={styles.liveIndicatorContainer}>
+      <Animated.View
+        style={[
+          styles.livePulseRing,
+          {
+            transform: [{ scale: pulseScale }],
+            opacity: pulseOpacity,
+          },
+        ]}
+      />
+      <View style={styles.liveSolidDot} />
+    </View>
+  );
+}
+
+function HoverTabButton({ name, focused, isHovered, onPress, onLongPress, onMouseEnter, onMouseLeave, styles, isDesktop }: any) {
+  const scale = useRef(new Animated.Value(focused ? 1.15 : 1)).current;
+  const { width } = useWindowDimensions();
+  
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: focused ? 1.15 : (isHovered ? 1.08 : 1),
+      friction: 5,
+      tension: 50,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [focused, isHovered]);
+
+  const activeColor = focused 
+    ? SVG_PATHS[name].color 
+    : (isHovered ? SVG_PATHS[name].color : '#7c7e8c');
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      {...(Platform.OS === 'web' ? {
+        onMouseEnter,
+        onMouseLeave,
+      } as any : {})}
+      style={isDesktop ? styles.tabButtonDesktop : styles.tabButton}
+    >
+      <Animated.View 
+        style={[
+          isDesktop ? styles.iconContainerDesktop : styles.iconContainer, 
+          { 
+            transform: [{ scale }],
+            shadowColor: SVG_PATHS[name].color,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: focused ? 0.35 : (isHovered ? 0.15 : 0),
+            shadowRadius: focused ? 6 : (isHovered ? 3 : 0),
+            elevation: focused ? 3 : (isHovered ? 1 : 0),
+            backgroundColor: focused
+              ? (isDesktop ? 'rgba(59, 130, 246, 0.12)' : 'rgba(13, 71, 161, 0.12)')
+              : (isHovered ? 'rgba(255, 255, 255, 0.05)' : 'transparent'),
+            borderColor: focused
+              ? (isDesktop ? 'rgba(59, 130, 246, 0.25)' : 'rgba(13, 71, 161, 0.25)')
+              : (isHovered ? 'rgba(255, 255, 255, 0.05)' : 'transparent'),
+          }
+        ]}
+        {...(Platform.OS === 'web' ? {
+          className: 'transition-all duration-300 ease-out flex items-center relative'
+        } as any : {})}
+      >
+        <SvgIcon name={name} color={activeColor} size={22} />
+        {isDesktop && (
+          <Text style={[
+            styles.tabLabelDesktop,
+            { color: activeColor, fontWeight: focused ? '700' : '500' }
+          ]}>
+            <Translate text={name === 'Live' ? 'Live TV' : name} />
+          </Text>
+        )}
+        {name === 'Live' && <LivePulseDot styles={styles} />}
+        {focused && !isDesktop && (
+          <View 
+            style={[
+              styles.dot, 
+              { 
+                backgroundColor: SVG_PATHS[name].color,
+                shadowColor: SVG_PATHS[name].color,
+                shadowOpacity: 0.8,
+                shadowRadius: 4,
+                elevation: 4
+              }
+            ]} 
+          />
+        )}
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+function CustomTabBar({ state, descriptors, navigation }: any) {
+  const { colors, isDark } = useTheme();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const styles = getStyles(colors, width, insets, isDark);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isMouseOver, setIsMouseOver] = useState(false);
+
+  const handleMouseMove = (e: any) => {
+    if (Platform.OS !== 'web') return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setMousePos({ x, y });
+  };
+
+  const handleMouseEnter = () => {
+    setIsMouseOver(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsMouseOver(false);
+    setHoveredIndex(null);
+  };
+
+  const tabCount = state.routes.length;
+  const isDesktop = Platform.OS === 'web' && width >= 768;
+  if (isDesktop) return null;
+
+  return (
+    <View 
+      style={isDesktop ? styles.sidebarContainer : styles.tabBarContainer}
+      {...(Platform.OS === 'web' ? {
+        onMouseMove: handleMouseMove,
+        onMouseEnter: handleMouseEnter,
+        onMouseLeave: handleMouseLeave,
+        className: isDesktop 
+          ? 'transition-all duration-500 ease-out border border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.3)]'
+          : 'transition-all duration-500 ease-out hover:border-white/20 hover:shadow-[0_0_30px_rgba(31,156,255,0.25)]'
+      } as any : {})}
+    >
+      {isDesktop && (
+        <View style={styles.sidebarLogoContainer}>
+          <Image source={PRIMARY_LOGO} style={styles.sidebarLogo} resizeMode="contain" />
+        </View>
+      )}
+
+      <View style={isDesktop ? styles.tabButtonsColumn : styles.tabButtonsRow}>
+        {state.routes.map((route: any, index: number) => {
+          if (!ICONS[route.name]) return null;
+          const { options } = descriptors[route.key];
+          const isFocused = state.index === index;
+
+          const onPress = () => {
+            const event = navigation.emit({
+              type: 'tabPress',
+              target: route.key,
+              canPreventDefault: true,
+            });
+
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate({ name: route.name, merge: true });
+            }
+          };
+
+          const onLongPress = () => {
+            navigation.emit({
+              type: 'tabLongPress',
+              target: route.key,
+            });
+          };
+
+          return (
+            <HoverTabButton
+              key={route.key}
+              name={route.name}
+              focused={isFocused}
+              isHovered={hoveredIndex === index}
+              onPress={onPress}
+              onLongPress={onLongPress}
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              styles={styles}
+              isDesktop={isDesktop}
+            />
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function MainTabs() {
+  const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width >= 768;
+
+  return (
+    <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
+      screenOptions={{
+        headerShown: false,
+        sceneStyle: {
+          paddingLeft: 0,
+          backgroundColor: 'transparent',
+        }
+      }}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Reels" component={ReelsScreen} />
+      <Tab.Screen name="News" component={NewsScreen} />
+      <Tab.Screen name="Live" component={LiveScreen} initialParams={{ mode: 'live' }} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen name="ReporterBroadcast" component={ReporterBroadcastScreen} />
+      <Tab.Screen name="StudioDashboard" component={StudioDashboardScreen} />
+      <Tab.Screen name="RecordedLivePlayer" component={RecordedLivePlayerScreen} />
+      <Tab.Screen name="TopStoriesAdmin" component={TopStoriesAdminScreen} />
+      <Tab.Screen name="SuperAdminDashboard" component={SuperAdminDashboardScreen} />
+    </Tab.Navigator>
+  );
+}
+
+export default function RootNavigator() {
+  const { colors, isDark } = useTheme();
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const styles = getStyles(colors, width, insets, isDark);
+  const { loading, user, activeProfile } = useAuth();
+  const [splashDone, setSplashDone] = useState(false);
+
+  useEffect(() => {
+    // Session is persisted; no forced signOut on reload for better testing experience
+
+    if (Platform.OS === 'web') {
+      const link = document.createElement('link');
+      link.href = 'https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap';
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
+      
+      const style = document.createElement('style');
+      style.textContent = `
+        * {
+          font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+        }
+      `;
+      document.head.appendChild(style);
+
+      const script = document.createElement('script');
+      script.src = 'https://cdn.tailwindcss.com';
+      document.head.appendChild(script);
+    }
+  }, []);
+
+  if (loading || !splashDone) {
+    return <CustomSplashScreen styles={styles} onComplete={() => setSplashDone(true)} />;
+  }
+  if (!user) return <LoginScreen />;
+  if (!activeProfile) return <ProfileGate />;
+  return (
+    <View style={{ flex: 1, backgroundColor: 'transparent' }}>
+      <MainTabs />
+    </View>
+  );
+}
+
+const getStyles = (colors: any, width: number, insets: any, isDark = false) => StyleSheet.create({
+  splashContainer: { flex: 1, backgroundColor: '#000', position: 'relative' },
+  splashVideo: { ...StyleSheet.absoluteFill },
+  splashOverlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryLogo: {
+    width: 330,
+    height: 110,
+    marginBottom: 10,
+  },
+  secondaryLogo: {
+    width: 120,
+    height: 40,
+    opacity: 0.8,
+  },
+  loader: {
+    marginTop: 30,
+  },
+  tabBarContainer: {
+    position: 'absolute',
+    bottom: Math.max(insets.bottom, width < 480 ? 12 : 18),
+    left: width < 480 ? 12 : 20,
+    right: width < 480 ? 12 : 20,
+    backgroundColor: isDark ? 'rgba(30, 41, 59, 0.75)' : 'rgba(255, 255, 255, 0.75)',
+    borderRadius: 42,
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+    height: 68,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+      }
+    }) as any,
+  },
+  sidebarContainer: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    bottom: 16,
+    width: 230,
+    backgroundColor: isDark ? 'rgba(30, 41, 59, 0.75)' : 'rgba(255, 255, 255, 0.75)',
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+    flexDirection: 'column',
+    justifyContent: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+      }
+    }) as any,
+  },
+  sidebarLogoContainer: {
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 48,
+    width: '100%',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+  },
+  sidebarLogo: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
+  },
+  tabButtonsColumn: {
+    flexDirection: 'column',
+    gap: 12,
+    width: '100%',
+  },
+  tabButtonDesktop: {
+    width: '100%',
+    height: 48,
+    justifyContent: 'center',
+  },
+  iconContainerDesktop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    width: '100%',
+  },
+  tabLabelDesktop: {
+    fontSize: 15,
+    marginLeft: 12,
+    fontFamily: 'Outfit',
+  },
+  tabButtonsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    zIndex: 1,
+  },
+  tabButton: {
+    flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dot: {
+    position: 'absolute',
+    bottom: 1,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  floatingAiBtn: {
+    position: 'absolute',
+    bottom: 104,
+    right: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(16, 185, 129, 0.75)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#10B981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 8,
+    ...Platform.select({
+      web: {
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)',
+      }
+    }) as any,
+  },
+  floatingAiText: {
+    fontSize: 24,
+  },
+  liveIndicatorContainer: {
+    position: 'absolute',
+    top: 4,
+    right: 8,
+    width: 8,
+    height: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  livePulseRing: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#EF4444',
+  },
+  liveSolidDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EF4444',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+  },
+});
+
