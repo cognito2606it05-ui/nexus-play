@@ -1441,19 +1441,21 @@ export default function HomeScreen() {
       />
       <ThreeDForestBg />
       
-      <AppHeader 
-        scrollY={scrollY} 
-        onPressAvatar={() => setShowProfileMenu(true)} 
-        onSearch={setSearchQuery}
-        onRefresh={onRefresh}
-        onCreatePost={() => setShowCreatePostModal(true)}
-        onOpenAssistant={() => setShowAssistant(true)}
-      />
+      {isDesktop && (
+        <AppHeader 
+          scrollY={scrollY} 
+          onPressAvatar={() => setShowProfileMenu(true)} 
+          onSearch={setSearchQuery}
+          onRefresh={onRefresh}
+          onCreatePost={() => setShowCreatePostModal(true)}
+          onOpenAssistant={() => setShowAssistant(true)}
+        />
+      )}
 
       <Animated.ScrollView
         style={[styles.container, { zIndex: 1 }]}
         contentContainerStyle={{ 
-          paddingTop: Math.max((insets?.top ?? 0), 12) + 96, 
+          paddingTop: isDesktop ? (Math.max((insets?.top ?? 0), 12) + 96) : (Math.max((insets?.top ?? 0), 12) + 12), 
           paddingBottom: Math.max((insets?.bottom ?? 0), 12) + 80,
           flexGrow: 1,
         }}

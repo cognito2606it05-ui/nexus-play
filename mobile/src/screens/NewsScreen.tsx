@@ -1549,12 +1549,14 @@ export default function NewsScreen({ route }: { route?: any }) {
 
   return (
     <View style={styles.fill}>
-      <AppHeader 
-        onPressAvatar={() => navigation.navigate('Profile')} 
-        onSearch={setSearchQuery}
-        onRefresh={loadTabData}
-        onOpenAssistant={() => setShowAssistant(true)}
-      />
+      {isDesktop && (
+        <AppHeader 
+          onPressAvatar={() => navigation.navigate('Profile')} 
+          onSearch={setSearchQuery}
+          onRefresh={loadTabData}
+          onOpenAssistant={() => setShowAssistant(true)}
+        />
+      )}
 
       {/* Top Header Row with dynamic tab add buttons */}
       <View style={styles.headerRow}>
@@ -2976,7 +2978,7 @@ const getStyles = (colors: any, insets: any, width: number) => {
     },
     headerRow: {
       paddingHorizontal: 16,
-      paddingTop: Math.max((insets?.top ?? 0), 12) + 96,
+      paddingTop: isDesktop ? (Math.max((insets?.top ?? 0), 12) + 96) : (Math.max((insets?.top ?? 0), 12) + 12),
       paddingBottom: 8,
       flexDirection: 'row',
       alignItems: 'center',
