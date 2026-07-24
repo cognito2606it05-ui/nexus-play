@@ -649,21 +649,21 @@ export default function HomeScreen() {
       ]);
       
       const officialChannels = (officialRes.data || []).map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        category: c.cat,
-        now: c.now,
-        viewers: c.viewers,
+        id: c.id || `off-${Math.random()}`,
+        name: c.name || 'Official Channel',
+        category: c.category || c.cat || 'News',
+        now: c.now || c.now_playing || 'Live Stream',
+        viewers: c.viewers || 0,
         isOfficial: true,
-        logoText: c.name.split(' ')[0]?.charAt(0) ?? 'N',
+        logoText: (c.name && typeof c.name === 'string') ? (c.name.split(' ')[0]?.charAt(0) || 'N') : 'N',
       }));
       
       const userStreams = (streamsRes.data || []).map((s: any) => ({
-        id: s.id,
-        name: s.profile_name,
-        category: s.category,
-        now: s.title,
-        viewers: s.viewers,
+        id: s.id || `user-${Math.random()}`,
+        name: s.profile_name || s.name || 'User Live',
+        category: s.category || 'General',
+        now: s.title || s.now || 'Live Broadcast',
+        viewers: s.viewers || 0,
         isOfficial: false,
         logoText: '👤',
       }));
@@ -1242,18 +1242,23 @@ export default function HomeScreen() {
   const categoriesList = ['Home', 'Trending', 'Breaking', 'Live TV', 'Politics', 'Business', 'Technology', 'Sports', 'Entertainment', 'Devotional', 'Education', 'Health', 'World', 'More'];
 
   const renderShelf = (title: string, data: any[], icon?: string) => {
-    if (!data || data.length === 0) return null;
+    if (!data || !Array.isArray(data) || data.length === 0) return null;
     return (
       <View style={styles.shelfContainer}>
         <Text style={styles.shelfTitle}>
           {icon ? `${icon} ` : ''}<Translate text={title} />
         </Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelfScroll}>
-          {data.map((item) => {
-            const needsBlur = item.needsBlur;
+          {data.map((item, idx) => {
+            if (!item) return null;
+            const needsBlur = !!item.needsBlur;
+            const catText = (item.category || 'NEWS').toString().toUpperCase();
+            const titleText = item.title || 'News Update';
+            const sourceText = item.source || 'NEXUS Network';
+            const pubDate = item.publishedAt || item.createdAt || new Date().toISOString();
             return (
               <HoverPressable
-                key={`shelf-${title.replace(/\s+/g, '-')}-${item.id}`}
+                key={`shelf-${title.replace(/\s+/g, '-')}-${item.id || idx}`}
                 style={styles.trendingCard}
                 onPress={() => setSelectedContent({ ...item, type: 'news' })}
               >
@@ -1263,23 +1268,23 @@ export default function HomeScreen() {
                   needsBlur && Platform.OS === 'web' && { filter: 'blur(20px)', WebkitFilter: 'blur(20px)' } as any
                 ]}>
                   <LazyImage 
-                    source={{ uri: item.imageUrl }} 
+                    source={{ uri: item.imageUrl || item.thumbnailUrl || 'https://picsum.photos/seed/news/800/450' }} 
                     style={StyleSheet.absoluteFill} 
                     blurRadius={needsBlur ? 20 : 0}
                   />
                 </View>
                 <View style={styles.trendingTextBlock}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={styles.trendingCategory}>{item.category?.toUpperCase()}</Text>
-                    {item.readMinutes && (
+                    <Text style={styles.trendingCategory}>{catText}</Text>
+                    {item.readMinutes ? (
                       <Text style={{ fontSize: 10, color: 'rgba(33, 33, 33, 0.4)', fontWeight: '700' }}>
                         ⏱️ {item.readMinutes}m
                       </Text>
-                    )}
+                    ) : null}
                   </View>
-                  <Text style={styles.trendingTitle} numberOfLines={2}><Translate text={item.title} /></Text>
+                  <Text style={styles.trendingTitle} numberOfLines={2}><Translate text={titleText} /></Text>
                   <Text style={styles.trendingSource}>
-                    {item.source} · {timeAgo(item.publishedAt)}
+                    {sourceText} · {timeAgo(pubDate)}
                   </Text>
                 </View>
               </HoverPressable>
@@ -1291,38 +1296,44 @@ export default function HomeScreen() {
   };
 
   const renderLiveTVShelf = () => {
-    if (!liveStreams || liveStreams.length === 0) return null;
+    if (!liveStreams || !Array.isArray(liveStreams) || liveStreams.length === 0) return null;
     return (
       <View style={styles.shelfContainer}>
         <Text style={styles.shelfTitle}>📺 <Translate text="Live TV" /></Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.shelfScroll}>
-          {liveStreams.map((stream) => (
-            <HoverPressable
-              key={`live-shelf-${stream.id}`}
-              style={styles.trendingCard}
-              onPress={() => navigation.navigate('Live', { streamId: stream.id })}
-            >
-              <LinearGradient
-                colors={stream.isOfficial ? ['#D32F2F', '#0D47A1'] : ['#475569', '#1E293B']}
-                style={{ width: '100%', height: 100, justifyContent: 'center', alignItems: 'center' }}
+          {liveStreams.map((stream, idx) => {
+            if (!stream) return null;
+            const logoText = typeof stream.logoText === 'string' ? stream.logoText : 'N';
+            const streamName = stream.name || 'Live Channel';
+            const streamNow = stream.now || stream.now_playing || 'Live Broadcast';
+            return (
+              <HoverPressable
+                key={`live-shelf-${stream.id || idx}`}
+                style={styles.trendingCard}
+                onPress={() => navigation.navigate('Live', { streamId: stream.id })}
               >
-                <Text style={{ fontSize: 32 }}>{stream.logoText}</Text>
-                <View style={[styles.storyLiveBadge, { position: 'absolute', top: 8, right: 8 }]}>
-                  <Text style={styles.storyLiveBadgeText}>LIVE</Text>
-                </View>
-                {stream.viewers && (
-                  <View style={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                    <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>👁️ {stream.viewers.toLocaleString()}</Text>
+                <LinearGradient
+                  colors={stream.isOfficial ? ['#D32F2F', '#0D47A1'] : ['#475569', '#1E293B']}
+                  style={{ width: '100%', height: 100, justifyContent: 'center', alignItems: 'center' }}
+                >
+                  <Text style={{ fontSize: 32 }}>{logoText}</Text>
+                  <View style={[styles.storyLiveBadge, { position: 'absolute', top: 8, right: 8 }]}>
+                    <Text style={styles.storyLiveBadgeText}>LIVE</Text>
                   </View>
-                )}
-              </LinearGradient>
-              <View style={styles.trendingTextBlock}>
-                <Text style={styles.trendingCategory}>{stream.category?.toUpperCase() || 'NEWS'}</Text>
-                <Text style={styles.trendingTitle} numberOfLines={2}><Translate text={stream.name} /></Text>
-                <Text style={styles.trendingSource} numberOfLines={1}><Translate text={stream.now} /></Text>
-              </View>
-            </HoverPressable>
-          ))}
+                  {stream.viewers ? (
+                    <View style={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ color: '#fff', fontSize: 10, fontWeight: '700' }}>👁️ {stream.viewers.toLocaleString()}</Text>
+                    </View>
+                  ) : null}
+                </LinearGradient>
+                <View style={styles.trendingTextBlock}>
+                  <Text style={styles.trendingCategory}>{(stream.category || 'NEWS').toString().toUpperCase()}</Text>
+                  <Text style={styles.trendingTitle} numberOfLines={2}><Translate text={streamName} /></Text>
+                  <Text style={styles.trendingSource} numberOfLines={1}><Translate text={streamNow} /></Text>
+                </View>
+              </HoverPressable>
+            );
+          })}
         </ScrollView>
       </View>
     );
