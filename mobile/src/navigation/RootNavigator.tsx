@@ -376,7 +376,7 @@ function CustomTabBar({ state, descriptors, navigation }: any) {
             });
 
             if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate({ name: route.name, merge: true });
+              navigation.navigate(route.name);
             }
           };
 
@@ -543,6 +543,7 @@ const getStyles = (colors: any, width: number, insets: any, isDark = false) => S
     shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 8,
+    zIndex: 99999,
     ...Platform.select({
       web: {
         backdropFilter: 'blur(20px)',
@@ -569,6 +570,7 @@ const getStyles = (colors: any, width: number, insets: any, isDark = false) => S
     shadowOpacity: 0.15,
     shadowRadius: 20,
     elevation: 8,
+    zIndex: 99999,
     ...Platform.select({
       web: {
         backdropFilter: 'blur(24px)',

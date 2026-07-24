@@ -304,6 +304,7 @@ export default function NewsScreen({ route }: { route?: any }) {
   const { colors, themeMode, toggleTheme, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  const isDesktop = Platform.OS === 'web' && width >= 768;
   const styles = getStyles(colors, insets, width);
 
   // Tab State
