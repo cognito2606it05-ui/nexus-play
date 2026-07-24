@@ -871,16 +871,30 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
 
 const styles = StyleSheet.create({
   dropdownBackdrop: {
-    position: 'absolute',
-    top: -200,
-    left: -1000,
-    right: -1000,
-    bottom: -2000,
+    ...Platform.select({
+      web: {
+        position: 'fixed',
+      } as any,
+      default: {
+        position: 'absolute',
+      }
+    }),
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'transparent',
     zIndex: 9998,
   },
   floatingHeader: {
-    position: 'absolute',
+    ...Platform.select({
+      web: {
+        position: 'fixed',
+      } as any,
+      default: {
+        position: 'absolute',
+      }
+    }),
     top: 0,
     left: 0,
     right: 0,
@@ -892,11 +906,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     shadowOpacity: 0.06,
     elevation: 4,
-    ...Platform.select({
-      web: {
-        position: 'fixed' as any,
-      }
-    }) as any,
   },
   headerContentWrapper: {
     flexDirection: 'row',

@@ -141,53 +141,62 @@ let hnCache = {
   lastFetch: 0
 };
 
-// Fetch HN top stories, format them, and cache them for 5 minutes
+// Fetch HN top stories asynchronously in the background so API requests respond instantly
 async function fetchHNNews() {
   const now = Date.now();
-  // 5-minute cache
   if (now - hnCache.lastFetch < 5 * 60 * 1000 && hnCache.data.length > 0) {
     return hnCache.data;
   }
-  try {
-    const topRes = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json');
-    if (!topRes.ok) throw new Error('HN top stories returned status ' + topRes.status);
-    const ids = await topRes.json();
-    const topIds = ids.slice(0, 10); // get top 10 stories
-    
-    const stories = await Promise.all(
-      topIds.map(async (id) => {
-        try {
-          const itemRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`);
-          if (!itemRes.ok) return null;
-          return await itemRes.json();
-        } catch {
-          return null;
-        }
-      })
-    );
-    
-    const formatted = stories.filter(Boolean).map((s) => ({
-      id: `hn-${s.id}`,
-      title: s.title,
-      summary: s.text ? s.text.slice(0, 150) + '...' : `Tech discussion on Hacker News. ${s.url ? 'Link: ' + s.url : ''}`,
-      body: s.url || `https://news.ycombinator.com/item?id=${s.id}`,
-      category: 'Tech',
-      source: 'Hacker News',
-      is_breaking: s.score > 250 ? 1 : 0,
-      image_url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=60', // generic tech image
-      read_minutes: Math.max(1, Math.round((s.descendants || 5) / 5)),
-      published_at: new Date(s.time * 1000).toISOString()
-    }));
-    
-    hnCache = {
-      data: formatted,
-      lastFetch: now
-    };
-    return formatted;
-  } catch (err) {
-    console.error('Failed to fetch HN stories:', err);
-    return hnCache.data; // Return stale cache on failure
-  }
+
+  const currentCached = hnCache.data;
+
+  // Background refresh without blocking synchronous request handling
+  (async () => {
+    try {
+      const topRes = await fetch('https://hacker-news.firebaseio.com/v0/topstories.json', {
+        signal: AbortSignal.timeout(3000)
+      });
+      if (!topRes.ok) return;
+      const ids = await topRes.json();
+      const topIds = ids.slice(0, 10);
+      
+      const stories = await Promise.all(
+        topIds.map(async (id) => {
+          try {
+            const itemRes = await fetch(`https://hacker-news.firebaseio.com/v0/item/${id}.json`, {
+              signal: AbortSignal.timeout(2000)
+            });
+            if (!itemRes.ok) return null;
+            return await itemRes.json();
+          } catch {
+            return null;
+          }
+        })
+      );
+      
+      const formatted = stories.filter(Boolean).map((s) => ({
+        id: `hn-${s.id}`,
+        title: s.title,
+        summary: s.text ? s.text.slice(0, 150) + '...' : `Tech discussion on Hacker News. ${s.url ? 'Link: ' + s.url : ''}`,
+        body: s.url || `https://news.ycombinator.com/item?id=${s.id}`,
+        category: 'Tech',
+        source: 'Hacker News',
+        is_breaking: s.score > 250 ? 1 : 0,
+        image_url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&auto=format&fit=crop&q=60',
+        read_minutes: Math.max(1, Math.round((s.descendants || 5) / 5)),
+        published_at: new Date(s.time * 1000).toISOString()
+      }));
+      
+      hnCache = {
+        data: formatted,
+        lastFetch: Date.now()
+      };
+    } catch (err) {
+      console.error('Failed to background fetch HN stories:', err);
+    }
+  })();
+
+  return currentCached;
 }
 
 // GET /api/news?category=Tech&region=AP&district=Guntur&limit=20

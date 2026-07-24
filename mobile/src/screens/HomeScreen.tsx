@@ -2638,8 +2638,25 @@ export default function HomeScreen() {
 }
 
 const getStyles = (colors: any) => StyleSheet.create({
-  fill: { flex: 1, backgroundColor: colors.bg },
-  container: { flex: 1, backgroundColor: colors.bg },
+  fill: { 
+    flex: 1, 
+    backgroundColor: colors.bg,
+    ...Platform.select({
+      web: {
+        minHeight: '100vh',
+        width: '100%',
+      }
+    }) as any,
+  },
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.bg,
+    ...Platform.select({
+      web: {
+        width: '100%',
+      }
+    }) as any,
+  },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
   
   // Stories container & items
