@@ -1451,10 +1451,11 @@ export default function HomeScreen() {
       />
 
       <Animated.ScrollView
-        style={styles.container}
+        style={[styles.container, { zIndex: 1 }]}
         contentContainerStyle={{ 
           paddingTop: Math.max(insets.top, 12) + 96, 
-          paddingBottom: Math.max(insets.bottom, 12) + 80 
+          paddingBottom: Math.max(insets.bottom, 12) + 80,
+          flexGrow: 1,
         }}
         scrollEventThrottle={16}
         onScroll={Animated.event(

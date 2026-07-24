@@ -23,11 +23,16 @@ export function ThreeDForestBg() {
     const camera = new THREE.PerspectiveCamera(60, width / height, 1, 1000);
     camera.position.z = 220;
 
-    // 3. Renderer Setup
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    container.appendChild(renderer.domElement);
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+      renderer.setSize(width, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+    } catch (e) {
+      console.warn('WebGL context creation failed:', e);
+      return;
+    }
 
     // 4. Lights
     const ambientLight = new THREE.AmbientLight(0xf5f5f5, 2.0);
