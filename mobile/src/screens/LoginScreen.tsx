@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator,
   KeyboardAvoidingView, Platform, ScrollView, Image, Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../state/AuthContext';
@@ -11,6 +12,7 @@ import { api } from '../api/client';
 const BRAND_LOGO = require('../../assets/nexuslogo.png');
 
 export default function LoginScreen() {
+  const insets = useSafeAreaInsets();
   const { signIn, signUp, signInWithOtp } = useAuth();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   const [method, setMethod] = useState<'phone' | 'email'>('phone');
@@ -116,9 +118,9 @@ export default function LoginScreen() {
   };
 
   return (
-    <LinearGradient colors={['#E3F2FD', '#FFFFFF', '#FFFFFF']} style={styles.fill}>
+    <LinearGradient colors={['#090D1A', '#0F172A', '#02040A']} style={styles.fill}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.fill}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingTop: Math.max(insets.top + 20, 32), paddingBottom: Math.max(insets.bottom + 20, 32) }]} keyboardShouldPersistTaps="handled">
           
           <View style={styles.headerContainer}>
             <Image source={BRAND_LOGO} style={styles.logo as any} resizeMode="contain" />
@@ -156,11 +158,10 @@ export default function LoginScreen() {
                     <TextInput
                       style={styles.input}
                       placeholder="Enter mobile number"
-                      placeholderTextColor="#9E9E9E"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
                       value={phone}
                       onChangeText={setPhone}
                       keyboardType="phone-pad"
-                      autoFocus
                     />
                   </View>
                 ) : (
@@ -180,12 +181,11 @@ export default function LoginScreen() {
                       <TextInput
                         style={styles.input}
                         placeholder="••••••"
-                        placeholderTextColor="#9E9E9E"
+                        placeholderTextColor="rgba(255,255,255,0.3)"
                         value={otp}
                         onChangeText={setOtp}
                         keyboardType="number-pad"
                         maxLength={6}
-                        autoFocus
                       />
                     </View>
 
@@ -240,7 +240,7 @@ export default function LoginScreen() {
                     <TextInput
                       style={styles.input}
                       placeholder="Enter display name"
-                      placeholderTextColor="#9E9E9E"
+                      placeholderTextColor="rgba(255,255,255,0.3)"
                       value={displayName}
                       onChangeText={setDisplayName}
                       autoCapitalize="words"
@@ -253,7 +253,7 @@ export default function LoginScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="name@example.com"
-                    placeholderTextColor="#9E9E9E"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
                     value={email}
                     onChangeText={setEmail}
                     autoCapitalize="none"
@@ -266,7 +266,7 @@ export default function LoginScreen() {
                   <TextInput
                     style={styles.input}
                     placeholder="••••••••"
-                    placeholderTextColor="#9E9E9E"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
                     value={password}
                     onChangeText={setPassword}
                     secureTextEntry
@@ -329,62 +329,62 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingVertical: 48 },
+  fill: { flex: 1, backgroundColor: '#090D1A' },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 16 },
   headerContainer: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   logo: {
-    width: 260,
-    height: 72,
-    marginBottom: 8,
+    width: 240,
+    height: 64,
+    marginBottom: 6,
   },
   tagline: {
-    color: '#616161',
-    fontSize: 12,
-    fontWeight: '600',
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 11,
+    fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0F172A',
     borderRadius: 20,
-    padding: 32,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    maxWidth: 440,
+    padding: 24,
+    borderWidth: 1.5,
+    borderColor: '#1E293B',
+    maxWidth: 420,
     width: '100%',
     alignSelf: 'center',
-    shadowColor: '#0D47A1',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 8,
   },
   title: {
-    color: '#212121',
-    fontSize: 26,
+    color: '#FFFFFF',
+    fontSize: 22,
     fontWeight: '900',
     marginBottom: 6,
     textAlign: 'center',
     letterSpacing: -0.5,
   },
   subtitle: {
-    color: '#616161',
-    fontSize: 13,
+    color: '#94A3B8',
+    fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   tabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1E293B',
     borderRadius: 12,
     padding: 4,
-    marginBottom: 24,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#334155',
   },
   tab: {
     flex: 1,
@@ -393,26 +393,26 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   tabActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#3B82F6',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 2,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#616161',
+    color: '#94A3B8',
   },
   tabTextActive: {
-    color: '#0D47A1',
+    color: '#FFFFFF',
   },
   inputWrapper: {
     marginBottom: 16,
   },
   label: {
-    color: '#212121',
+    color: '#E2E8F0',
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -420,13 +420,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   input: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1E293B',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#212121',
+    color: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#334155',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -434,34 +434,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#1E293B',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 8,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: '#334155',
   },
   phoneVal: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#212121',
+    color: '#FFFFFF',
   },
   changeBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: '#334155',
   },
   changeBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#616161',
+    color: '#E2E8F0',
   },
   demoOtpContainer: {
-    backgroundColor: '#FFF9C4',
+    backgroundColor: 'rgba(234, 179, 8, 0.15)',
     borderWidth: 1,
-    borderColor: '#FBC02D',
+    borderColor: 'rgba(234, 179, 8, 0.3)',
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
@@ -470,19 +470,19 @@ const styles = StyleSheet.create({
   demoOtpLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#F57F17',
+    color: '#EAB308',
     textTransform: 'uppercase',
     marginBottom: 2,
   },
   demoOtpValue: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#E65100',
+    color: '#FACC15',
     letterSpacing: 4,
   },
   demoOtpHelp: {
     fontSize: 11,
-    color: '#5D4037',
+    color: '#CBD5E1',
     marginTop: 4,
   },
   optionsRow: {
@@ -501,15 +501,15 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: '#BDBDBD',
+    borderColor: '#64748B',
     marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#1E293B',
   },
   checkboxActive: {
-    backgroundColor: '#0D47A1',
-    borderColor: '#0D47A1',
+    backgroundColor: '#3B82F6',
+    borderColor: '#3B82F6',
   },
   checkmark: {
     color: '#fff',
@@ -517,41 +517,41 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   optionText: {
-    color: '#616161',
+    color: '#94A3B8',
     fontSize: 12,
     fontWeight: '600',
   },
   forgotText: {
-    color: '#D32F2F',
+    color: '#EF4444',
     fontSize: 12,
     fontWeight: '700',
   },
   error: {
-    color: '#D32F2F',
+    color: '#EF4444',
     fontWeight: '700',
     fontSize: 12,
     marginBottom: 14,
     textAlign: 'center',
   },
   btn: {
-    backgroundColor: '#0D47A1',
+    backgroundColor: '#2563EB',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0D47A1',
+    shadowColor: '#2563EB',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 4,
   },
   btnPressed: {
-    backgroundColor: '#D32F2F',
+    backgroundColor: '#1D4ED8',
   },
   btnText: {
     color: '#FFFFFF',
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: 15,
     letterSpacing: 0.5,
   },
   switchContainer: {
@@ -559,18 +559,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   switchText: {
-    color: '#616161',
+    color: '#94A3B8',
     fontSize: 13,
     fontWeight: '600',
   },
   switchLink: {
-    color: '#0D47A1',
+    color: '#60A5FA',
     fontWeight: '800',
   },
   demo: {
-    color: '#9E9E9E',
+    color: 'rgba(255,255,255,0.4)',
     textAlign: 'center',
-    marginTop: 24,
+    marginTop: 20,
     fontSize: 11,
     fontWeight: '600',
   },

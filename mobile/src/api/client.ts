@@ -55,7 +55,7 @@ async function request<T>(path: string, init: RequestInit = {}, withProfile = tr
 
   const contentType = res.headers.get('content-type') || '';
   if (!contentType.includes('application/json')) {
-    throw new Error(`Server returned non-JSON response (${res.status}). Please check if the API server on port 4000 is running.`);
+    throw new Error(`Server returned status ${res.status}. Please check if the API server on your VPS is running (pm2 status).`);
   }
 
   const data = await res.json().catch(() => ({}));
