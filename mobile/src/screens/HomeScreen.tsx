@@ -1451,11 +1451,39 @@ export default function HomeScreen() {
           onOpenAssistant={() => setShowAssistant(true)}
         />
       )}
+      {!isDesktop && (
+        <View style={{
+          position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 56 + (insets?.top ?? 0),
+          paddingTop: insets?.top ?? 0,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+          borderBottomWidth: 1,
+          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+          zIndex: 9999,
+          ...Platform.select({
+            web: {
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+            }
+          }) as any,
+        }}>
+          <Image
+            source={require('../../assets/nexuslogo.png')}
+            style={{ width: 85, height: 26 }}
+            resizeMode="contain"
+          />
+        </View>
+      )}
 
       <Animated.ScrollView
         style={[styles.container, { zIndex: 1 }]}
         contentContainerStyle={{ 
-          paddingTop: isDesktop ? (Math.max((insets?.top ?? 0), 12) + 96) : (Math.max((insets?.top ?? 0), 12) + 12), 
+          paddingTop: isDesktop ? (Math.max((insets?.top ?? 0), 12) + 96) : (Math.max((insets?.top ?? 0), 12) + 56), 
           paddingBottom: Math.max((insets?.bottom ?? 0), 12) + 80,
           flexGrow: 1,
         }}
@@ -2645,8 +2673,9 @@ const getStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.bg,
     ...Platform.select({
       web: {
-        minHeight: '100vh',
+        height: '100vh',
         width: '100%',
+        overflow: 'hidden',
       }
     }) as any,
   },
@@ -2656,7 +2685,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     ...Platform.select({
       web: {
         width: '100%',
-        minHeight: '100vh',
+        height: '100%',
       }
     }) as any,
   },

@@ -729,14 +729,51 @@ export default function ProfileScreen() {
   const totalComments = profileComments.length;
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ 
+      flex: 1,
+      ...Platform.select({
+        web: {
+          height: '100vh',
+          width: '100%',
+          overflow: 'hidden',
+        }
+      }) as any
+    }}>
       {isDesktop && <AppHeader onPressAvatar={() => {}} />}
+      {!isDesktop && (
+        <View style={{
+          position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 56 + (insets?.top ?? 0),
+          paddingTop: insets?.top ?? 0,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+          borderBottomWidth: 1,
+          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+          zIndex: 9999,
+          ...Platform.select({
+            web: {
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+            }
+          }) as any,
+        }}>
+          <Image
+            source={require('../../assets/nexuslogo.png')}
+            style={{ width: 85, height: 26 }}
+            resizeMode="contain"
+          />
+        </View>
+      )}
       <ThreeDForestBg />
       <ScrollView 
         style={[styles.container, { backgroundColor: 'transparent' }]}
         contentContainerStyle={{ 
           paddingBottom: Math.max((insets?.bottom ?? 0) + 80, 110), 
-          paddingTop: isDesktop ? 96 : 76 
+          paddingTop: isDesktop ? 96 : (56 + (insets?.top ?? 0)) 
         }}
       >
         {/* COVER PHOTO SECTION */}
@@ -2107,7 +2144,7 @@ const styles = StyleSheet.create({
     flex: 1,
     ...Platform.select({
       web: {
-        minHeight: '100vh',
+        height: '100%',
         width: '100%',
       }
     }) as any,

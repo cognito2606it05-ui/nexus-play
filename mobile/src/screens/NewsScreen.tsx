@@ -1557,6 +1557,34 @@ export default function NewsScreen({ route }: { route?: any }) {
           onOpenAssistant={() => setShowAssistant(true)}
         />
       )}
+      {!isDesktop && (
+        <View style={{
+          position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 56 + (insets?.top ?? 0),
+          paddingTop: insets?.top ?? 0,
+          justifyContent: 'center',
+          alignItems: 'center',
+          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
+          borderBottomWidth: 1,
+          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+          zIndex: 9999,
+          ...Platform.select({
+            web: {
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+            }
+          }) as any,
+        }}>
+          <Image
+            source={require('../../assets/nexuslogo.png')}
+            style={{ width: 85, height: 26 }}
+            resizeMode="contain"
+          />
+        </View>
+      )}
 
       {/* Top Header Row with dynamic tab add buttons */}
       <View style={styles.headerRow}>
@@ -2971,14 +2999,15 @@ const getStyles = (colors: any, insets: any, width: number) => {
       backgroundColor: colors.bg,
       ...Platform.select({
         web: {
-          minHeight: '100vh',
+          height: '100vh',
           width: '100%',
+          overflow: 'hidden',
         }
       }) as any,
     },
     headerRow: {
       paddingHorizontal: 16,
-      paddingTop: isDesktop ? (Math.max((insets?.top ?? 0), 12) + 96) : (Math.max((insets?.top ?? 0), 12) + 12),
+      paddingTop: isDesktop ? (Math.max((insets?.top ?? 0), 12) + 96) : (Math.max((insets?.top ?? 0), 12) + 56),
       paddingBottom: 8,
       flexDirection: 'row',
       alignItems: 'center',
