@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, Image, useWindowDimensions,
-  ActivityIndicator, Modal, ScrollView,
+  ActivityIndicator, Modal, ScrollView, Platform,
 } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useIsFocused } from '@react-navigation/native';
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
     ...Platform.select({
       web: {
-        minHeight: '100vh',
+        minHeight: '100%',
         width: '100%',
       }
     }) as any,

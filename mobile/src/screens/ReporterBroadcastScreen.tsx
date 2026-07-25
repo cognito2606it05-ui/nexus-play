@@ -6,6 +6,7 @@ import { useAuth } from '../state/AuthContext';
 import { useTheme } from '../state/ThemeContext';
 import { api, getEventsUrl } from '../api/client';
 import { API_URL } from '../config';
+import { requestAudioAndCameraPermissions } from '../utils/permissions';
 
 export default function ReporterBroadcastScreen({ navigation }: any) {
   const { colors } = useTheme();
@@ -105,6 +106,17 @@ export default function ReporterBroadcastScreen({ navigation }: any) {
     }
   }, [localStream]);
 
+  const showPermissionHelpAlert = () => {
+    Alert.alert(
+      'Enabling Camera & Mic Permissions',
+      'If you have previously blocked access, follow these steps:\n\n' +
+      '• Chrome / Edge: Click the Lock icon 🔒 next to the URL in the address bar, then change Camera & Microphone to "Allow" and reload the page.\n' +
+      '• Safari: Tap the Settings or "aA" icon in the search bar, select "Website Settings", and set Camera & Microphone to "Allow".\n' +
+      '• Firefox: Click the permission status icon next to the URL, clear previous block choices, and reload.',
+      [{ text: 'OK' }]
+    );
+  };
+
   // Initialize camera preview
   const initializeMedia = async () => {
     if (Platform.OS !== 'web' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -119,6 +131,25 @@ export default function ReporterBroadcastScreen({ navigation }: any) {
     // Stop current stream if running
     if (localStream) {
       localStream.getTracks().forEach((track: any) => track.stop());
+    }
+
+    try {
+      // First request permissions via utility helper
+      await requestAudioAndCameraPermissions();
+    } catch (permErr: any) {
+      console.warn('Permission request failed:', permErr);
+      setCameraStatus('denied');
+      setCameraError(permErr.message || 'Camera and microphone permissions are required.');
+      Alert.alert(
+        'Permissions Required',
+        permErr.message || 'Camera and Microphone access is required. Please allow access in browser or system settings to start broadcasting.',
+        [
+          { text: 'How to enable?', onPress: () => showPermissionHelpAlert() },
+          { text: 'Retry', onPress: () => initializeMedia() },
+          { text: 'Cancel', style: 'cancel' }
+        ]
+      );
+      return;
     }
 
     try {
@@ -140,7 +171,7 @@ export default function ReporterBroadcastScreen({ navigation }: any) {
       setLocalStream(stream);
       setCameraStatus('connected');
     } catch (err: any) {
-      console.warn('Failed to access camera/mic:', err);
+      console.warn('Failed to access camera/mic stream:', err);
       let status: 'not_found' | 'denied' | 'busy' | 'unsupported' = 'not_found';
       let errorMsg = 'An unknown error occurred while accessing the camera.';
 

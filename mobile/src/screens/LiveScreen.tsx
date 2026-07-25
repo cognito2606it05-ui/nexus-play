@@ -23,6 +23,7 @@ import { AppHeader } from '../components/AppHeader';
 import { api, getEventsUrl } from '../api/client';
 import { useAuth } from '../state/AuthContext';
 import { API_URL } from '../config';
+import { requestAudioAndCameraPermissions, requestMicrophonePermission } from '../utils/permissions';
 
 const { width, height } = Dimensions.get('window');
 
@@ -442,6 +443,7 @@ export default function LiveScreen({ route }: { route?: any }) {
       return;
     }
     try {
+      await requestMicrophonePermission();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioChunksRef.current = [];
       const options = { mimeType: 'audio/webm' };
@@ -715,6 +717,7 @@ export default function LiveScreen({ route }: { route?: any }) {
   const startCamera = async (mode: 'user' | 'environment', useDual = isDualCamera) => {
     if (Platform.OS !== 'web') return;
     try {
+      await requestAudioAndCameraPermissions();
       // Clean up previous streams
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach((track) => track.stop());

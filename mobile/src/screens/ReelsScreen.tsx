@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     ...Platform.select({
       web: {
-        minHeight: '100vh',
+        minHeight: '100%',
         width: '100%',
       }
     }) as any,

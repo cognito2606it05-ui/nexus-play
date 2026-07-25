@@ -733,7 +733,7 @@ export default function ProfileScreen() {
       flex: 1,
       ...Platform.select({
         web: {
-          height: '100vh',
+          height: '100%',
           width: '100%',
           overflow: 'hidden',
         }

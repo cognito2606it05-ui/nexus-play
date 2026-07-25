@@ -3000,7 +3000,7 @@ const getStyles = (colors: any, insets: any, width: number) => {
       backgroundColor: colors.bg,
       ...Platform.select({
         web: {
-          height: '100vh',
+          height: '100%',
           width: '100%',
           overflow: 'hidden',
         }

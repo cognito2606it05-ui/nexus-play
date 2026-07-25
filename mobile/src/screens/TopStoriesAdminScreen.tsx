@@ -466,7 +466,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const fileList = result.assets;
         for (const asset of fileList) {
-          if (Platform.OS === 'web') {
+          if ((Platform.OS as any) === 'web') {
             const file = asset.file;
             if (file) {
               const reader = new FileReader();

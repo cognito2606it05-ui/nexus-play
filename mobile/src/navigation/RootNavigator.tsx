@@ -416,9 +416,9 @@ function MainTabs() {
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        sceneContainerStyle: {
+        sceneStyle: {
           flex: 1,
-          minHeight: Platform.OS === 'web' ? '100vh' : '100%',
+          height: '100%',
           width: '100%',
           backgroundColor: 'transparent',
         }
@@ -528,10 +528,6 @@ const getStyles = (colors: any, width: number, insets: any, isDark = false) => S
     borderRadius: 2,
   },
   tabBarContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
     borderTopWidth: 1,
     borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
