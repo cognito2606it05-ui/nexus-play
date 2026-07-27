@@ -18,6 +18,7 @@ import { AIUploadScanner } from '../components/AIUploadScanner';
 import { NexusAssistantModal } from '../components/NexusAssistantModal';
 import { ShareModal } from '../components/ShareModal';
 import type { NewsItem } from '../types';
+import { requestLocationPermission } from '../utils/permissions';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { API_URL } from '../config';
@@ -653,8 +654,16 @@ export default function NewsScreen({ route }: { route?: any }) {
   }, []);
 
   // GPS / Geolocation helper for News Upload
-  const handleGetCurrentLocation = () => {
+  const handleGetCurrentLocation = async () => {
     setIsLocating(true);
+    try {
+      await requestLocationPermission();
+    } catch (permErr: any) {
+      console.warn('Location permission failed:', permErr);
+      Alert.alert('Permission Required', permErr.message || 'Location access is required to use GPS.');
+      setIsLocating(false);
+      return;
+    }
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -689,8 +698,16 @@ export default function NewsScreen({ route }: { route?: any }) {
   };
 
   // GPS / Geolocation helper for Reels Upload
-  const handleGetReelsLocation = () => {
+  const handleGetReelsLocation = async () => {
     setIsLocating(true);
+    try {
+      await requestLocationPermission();
+    } catch (permErr: any) {
+      console.warn('Location permission failed:', permErr);
+      Alert.alert('Permission Required', permErr.message || 'Location access is required to use GPS.');
+      setIsLocating(false);
+      return;
+    }
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
@@ -1483,8 +1500,16 @@ export default function NewsScreen({ route }: { route?: any }) {
     }
   };
 
-  const handleGetPostLocation = () => {
+  const handleGetPostLocation = async () => {
     setIsLocating(true);
+    try {
+      await requestLocationPermission();
+    } catch (permErr: any) {
+      console.warn('Location permission failed:', permErr);
+      Alert.alert('Permission Required', permErr.message || 'Location access is required to use GPS.');
+      setIsLocating(false);
+      return;
+    }
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {

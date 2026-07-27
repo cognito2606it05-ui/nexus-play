@@ -365,7 +365,7 @@ export default function ReporterBroadcastScreen({ navigation }: any) {
         }
 
         // Connect to the Socket.IO server relay endpoint
-        const socket = io(API_URL, {
+        const socket = io(`${API_URL}/live-relay`, {
           path: '/socket.io',
           auth: { token, streamKey },
           transports: ['websocket'],
@@ -477,6 +477,7 @@ export default function ReporterBroadcastScreen({ navigation }: any) {
 
         console.log('[Go Live] Initializing MediaRecorder for chunk broadcasting...');
         // Record chunks locally and send to relay server
+        const recordedChunks: any[] = [];
         let recorder: any;
         try {
           recorder = new MediaRecorder(localStream, { mimeType: 'video/webm;codecs=vp8,opus' });
@@ -488,9 +489,11 @@ export default function ReporterBroadcastScreen({ navigation }: any) {
           }
         }
         mediaRecorderRef.current = recorder;
+        (window as any).__reporterChunks = recordedChunks;
         
         recorder.ondataavailable = (event: any) => {
           if (event.data && event.data.size > 0) {
+            recordedChunks.push(event.data);
             if (socketRef.current && socketRef.current.connected) {
               socketRef.current.emit('video-chunk', event.data);
             }
@@ -524,6 +527,7 @@ export default function ReporterBroadcastScreen({ navigation }: any) {
     }
     
     // Stop recording and close media recorder
+    const chunks = (window as any).__reporterChunks || [];
     if (mediaRecorderRef.current) {
       try {
         mediaRecorderRef.current.stop();
@@ -542,6 +546,25 @@ export default function ReporterBroadcastScreen({ navigation }: any) {
         console.error('Failed to disconnect socket:', e);
       }
       socketRef.current = null;
+    }
+
+    // If chunks collected, upload recorded video
+    if (chunks.length > 0 && myStreamId) {
+      try {
+        const videoBlob = new Blob(chunks, { type: 'video/webm' });
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((res, rej) => {
+          reader.onloadend = () => res(reader.result as string);
+          reader.onerror = rej;
+          reader.readAsDataURL(videoBlob);
+        });
+        const base64Data = await base64Promise;
+        console.log('[Reporter] Uploading recorded video file...');
+        await api.uploadStreamRecording(myStreamId, base64Data);
+      } catch (recErr) {
+        console.error('Failed to upload reporter recording:', recErr);
+      }
+      (window as any).__reporterChunks = null;
     }
 
     try {

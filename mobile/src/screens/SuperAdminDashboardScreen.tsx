@@ -27,7 +27,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const { user } = useAuth();
 
   // Sidebar navigation state
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'topStories' | 'news' | 'channels' | 'reporters' | 'users' | 'ads' | 'notifications' | 'media' | 'database' | 'backups' | 'logs' | 'settings'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'topStories' | 'news' | 'channels' | 'reporters' | 'users' | 'ads' | 'notifications' | 'media' | 'database' | 'backups' | 'logs'>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Common loading / data states
@@ -43,6 +43,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const [reporterList, setReporterList] = useState<any[]>([]);
   const [userList, setUserList] = useState<any[]>([]);
   const [adList, setAdList] = useState<any[]>([]);
+  const [notificationsList, setNotificationsList] = useState<any[]>([]);
   const [backupsList, setBackupsList] = useState<any[]>([]);
   const [auditLogsList, setAuditLogsList] = useState<any[]>([]);
   const [mediaFiles, setMediaFiles] = useState<any[]>([]);
@@ -62,8 +63,12 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
 
   // Modal forms
   const [showFormModal, setShowFormModal] = useState(false);
-  const [formType, setFormType] = useState<'news' | 'channel' | 'ad' | 'notification' | 'reporter-perms'>('news');
+  const [formType, setFormType] = useState<'news' | 'channel' | 'ad' | 'notification' | 'reporter-perms' | 'user'>('news');
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Lightbox Media Preview Modal State
+  const [previewMediaFile, setPreviewMediaFile] = useState<any | null>(null);
+  const [showMediaPreviewModal, setShowMediaPreviewModal] = useState(false);
 
   // News Form States
   const [newsTitle, setNewsTitle] = useState('');
@@ -87,6 +92,12 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const [chanIsOfficial, setChanIsOfficial] = useState(true);
   const [chanVideoUrl, setChanVideoUrl] = useState('');
 
+  // User Form States
+  const [userEmail, setUserEmail] = useState('');
+  const [userPassword, setUserPassword] = useState('');
+  const [userDisplayName, setUserDisplayName] = useState('');
+  const [userRole, setUserRole] = useState('user');
+
   // Ads Form States
   const [adTitle, setAdTitle] = useState('');
   const [adPlacement, setAdPlacement] = useState('Homepage Top');
@@ -104,6 +115,33 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const [selectedReporter, setSelectedReporter] = useState<any | null>(null);
   const [reporterRegion, setReporterRegion] = useState('');
   const [reporterCats, setReporterCats] = useState('');
+
+  const openMediaPreview = (file: any) => {
+    setPreviewMediaFile(file);
+    setShowMediaPreviewModal(true);
+  };
+
+  // Web & Native Cross-Platform Confirmation Dialog Helper
+  const confirmAction = (title: string, message: string, onConfirm: () => void) => {
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${title}\n\n${message}`)) {
+        onConfirm();
+      }
+    } else {
+      Alert.alert(title, message, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'OK', style: 'destructive', onPress: onConfirm },
+      ]);
+    }
+  };
+
+  const showAlert = (title: string, message?: string) => {
+    if (Platform.OS === 'web') {
+      alert(`${title}${message ? '\n\n' + message : ''}`);
+    } else {
+      Alert.alert(title, message);
+    }
+  };
 
   // WebSocket / real-time updates
   useEffect(() => {
@@ -123,13 +161,14 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
       if (activeTab === 'dashboard') {
         const stats = await api.request<any>('/api/admin/analytics');
         if (stats) {
+          const m = stats.metrics || {};
           setKpis({
-            todayVisitors: stats.totalUsers * 12 + 4500,
-            activeUsers: stats.activeStreams * 200 + 40,
-            liveStreams: stats.activeStreams,
-            publishedNews: stats.newsCount,
-            pendingNews: stats.reportsPending || 0,
-            revenue: `$${stats.totalUsers * 8 + 320}`,
+            todayVisitors: (m.totalUsers || 0) * 12 + 4500,
+            activeUsers: m.activeUsers || 0,
+            liveStreams: m.liveStreams || 0,
+            publishedNews: m.newsPublished || 0,
+            pendingNews: m.totalReports || 0,
+            revenue: `$${(m.revenue || 0).toFixed(2)}`,
             dbSize: '12.8 MB',
             cpuUsage: '8%',
             memUsage: '26%',
@@ -153,6 +192,9 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
       } else if (activeTab === 'ads') {
         const res = await api.request<any>('/api/admin/ads');
         if (res && res.data) setAdList(res.data);
+      } else if (activeTab === 'notifications') {
+        const res = await api.request<any>('/api/admin/notifications');
+        if (res && res.data) setNotificationsList(res.data);
       } else if (activeTab === 'media') {
         const res = await api.request<any>('/api/admin/media-library');
         if (res && res.data) setMediaFiles(res.data);
@@ -179,7 +221,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
 
   // Operation Actions
   const handleSaveNews = async () => {
-    if (!newsTitle) return Alert.alert('Title is required');
+    if (!newsTitle) return showAlert('Title is required');
     const payload = {
       title: newsTitle,
       summary: newsSummary,
@@ -200,12 +242,12 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
       setShowFormModal(false);
       loadTabContent();
     } catch (err: any) {
-      Alert.alert('Save failed', err.message);
+      showAlert('Save failed', err.message);
     }
   };
 
   const handleSaveChannel = async () => {
-    if (!chanId || !chanName || !chanVideoUrl) return Alert.alert('ID, Name, and Video URL are required');
+    if (!chanId || !chanName || !chanVideoUrl) return showAlert('ID, Name, and Video URL are required');
     const payload = {
       id: chanId,
       name: chanName,
@@ -224,12 +266,40 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
       setShowFormModal(false);
       loadTabContent();
     } catch (err: any) {
-      Alert.alert('Save failed', err.message);
+      showAlert('Save failed', err.message);
+    }
+  };
+
+  const handleSaveUser = async () => {
+    if (editingId) {
+      if (!userDisplayName) return showAlert('Display Name is required');
+      try {
+        await api.request(`/api/admin/users/${editingId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ displayName: userDisplayName, role: userRole })
+        });
+        setShowFormModal(false);
+        loadTabContent();
+      } catch (err: any) {
+        showAlert('Update failed', err.message);
+      }
+    } else {
+      if (!userEmail || !userPassword || !userDisplayName) return showAlert('Email, Password, and Display Name are required');
+      try {
+        await api.request('/api/admin/users', {
+          method: 'POST',
+          body: JSON.stringify({ email: userEmail, password: userPassword, displayName: userDisplayName, role: userRole })
+        });
+        setShowFormModal(false);
+        loadTabContent();
+      } catch (err: any) {
+        showAlert('Create user failed', err.message);
+      }
     }
   };
 
   const handleSaveAd = async () => {
-    if (!adTitle) return Alert.alert('Title is required');
+    if (!adTitle) return showAlert('Title is required');
     const payload = {
       title: adTitle,
       type: adType,
@@ -247,12 +317,12 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
       setShowFormModal(false);
       loadTabContent();
     } catch (err: any) {
-      Alert.alert('Save failed', err.message);
+      showAlert('Save failed', err.message);
     }
   };
 
   const handleSendNotification = async () => {
-    if (!notifyTitle || !notifyBody) return Alert.alert('Title and Body are required');
+    if (!notifyTitle || !notifyBody) return showAlert('Title and Body are required');
     try {
       await api.request('/api/admin/notifications/send', {
         method: 'POST',
@@ -263,9 +333,10 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
         })
       });
       setShowFormModal(false);
-      Alert.alert('Push notifications broadcasted successfully!');
+      showAlert('Push notifications broadcasted successfully!');
+      loadTabContent();
     } catch (e: any) {
-      Alert.alert('Push broadcast failed', e.message);
+      showAlert('Push broadcast failed', e.message);
     }
   };
 
@@ -275,33 +346,31 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
       await api.request(`/api/admin/reporters/${selectedReporter.id}/permissions`, {
         method: 'POST',
         body: JSON.stringify({
-          categories: reporterCats.split(',').map(c => c.trim()),
+          categories: reporterCats.split(',').map(c => c.trim()).filter(Boolean),
           region: reporterRegion
         })
       });
       setShowFormModal(false);
-      Alert.alert('Reporter regions/permissions updated successfully.');
+      showAlert('Reporter regions and permissions updated successfully.');
+      loadTabContent();
     } catch (err: any) {
-      Alert.alert('Update failed', err.message);
+      showAlert('Update failed', err.message);
     }
   };
 
   const handleDeleteItem = (endpoint: string, id: string) => {
-    Alert.alert('Confirm Deletion', 'Are you sure you want to permanently delete this item?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.request(endpoint, { method: 'DELETE' });
-            loadTabContent();
-          } catch (err: any) {
-            Alert.alert('Deletion failed', err.message);
-          }
+    confirmAction(
+      'Confirm Deletion',
+      `Are you sure you want to permanently delete this item (${id})?`,
+      async () => {
+        try {
+          await api.request(endpoint, { method: 'DELETE' });
+          loadTabContent();
+        } catch (err: any) {
+          showAlert('Deletion failed', err.message);
         }
       }
-    ]);
+    );
   };
 
   const handlePickMediaFile = async () => {
@@ -320,9 +389,10 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                   method: 'POST',
                   body: JSON.stringify({ filename: asset.name, base64Data: base64 })
                 });
+                showAlert('Upload Success', `Uploaded ${asset.name}`);
                 loadTabContent();
               } catch (e: any) {
-                Alert.alert('File upload failed', e.message);
+                showAlert('File upload failed', e.message);
               }
             };
             reader.readAsDataURL(file);
@@ -348,10 +418,10 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
             });
             if (res && res.url) {
               setNewsImageUrl(res.url);
-              Alert.alert('Success', 'Cover image uploaded successfully.');
+              showAlert('Success', 'Cover image uploaded successfully.');
             }
           } catch (e: any) {
-            Alert.alert('Upload failed', e.message);
+            showAlert('Upload failed', e.message);
           } finally {
             setUploadingNewsImage(false);
           }
@@ -405,10 +475,10 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
             });
             if (res && res.url) {
               setNewsVideoUrl(res.url);
-              Alert.alert('Success', 'News video uploaded successfully.');
+              showAlert('Success', 'News video uploaded successfully.');
             }
           } catch (e: any) {
-            Alert.alert('Upload failed', e.message);
+            showAlert('Upload failed', e.message);
           } finally {
             setUploadingNewsVideo(false);
           }
@@ -461,27 +531,24 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
         loadTabContent();
       }
     } catch (e: any) {
-      Alert.alert('Query Error', e.message);
+      showAlert('Query Error', e.message);
     }
   };
 
   // Database row delete
   const handleDeleteRow = (col: string, val: any) => {
-    Alert.alert('Confirm Row Delete', 'Are you sure you want to delete this row?', [
-      { text: 'Cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.request(`/api/admin/database/tables/${selectedTable}/row?idCol=${col}&idVal=${val}`, { method: 'DELETE' });
-            loadTabContent();
-          } catch (e: any) {
-            Alert.alert('Failed to delete row', e.message);
-          }
+    confirmAction(
+      'Confirm Row Delete',
+      `Are you sure you want to delete row where ${col} = ${val}?`,
+      async () => {
+        try {
+          await api.request(`/api/admin/database/tables/${selectedTable}/row?idCol=${col}&idVal=${encodeURIComponent(val)}`, { method: 'DELETE' });
+          loadTabContent();
+        } catch (e: any) {
+          showAlert('Failed to delete row', e.message);
         }
       }
-    ]);
+    );
   };
 
   // Backups Restores
@@ -489,51 +556,49 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
     try {
       const res = await api.request<any>('/api/admin/backups/create', { method: 'POST' });
       if (res && res.filename) {
-        Alert.alert('Backup Successful', `Created database copy: ${res.filename}`);
+        showAlert('Backup Successful', `Created database checkpoint: ${res.filename}`);
         loadTabContent();
       }
     } catch (e: any) {
-      Alert.alert('Backup failed', e.message);
+      showAlert('Backup failed', e.message);
     }
   };
 
   const handleRestoreBackup = (filename: string) => {
-    Alert.alert('Restore Database', `Are you absolutely sure you want to overwrite your active database with backup: ${filename}?`, [
-      { text: 'Cancel' },
-      {
-        text: 'Restore Backup',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.request('/api/admin/backups/restore', {
-              method: 'POST',
-              body: JSON.stringify({ filename })
-            });
-            Alert.alert('Restore Complete', 'Database was successfully restored to selected checkpoint.');
-            loadTabContent();
-          } catch (err: any) {
-            Alert.alert('Restore failed', err.message);
-          }
+    confirmAction(
+      'Restore Database',
+      `Are you absolutely sure you want to overwrite your active database with backup: ${filename}?`,
+      async () => {
+        try {
+          await api.request('/api/admin/backups/restore', {
+            method: 'POST',
+            body: JSON.stringify({ filename })
+          });
+          showAlert('Restore Complete', 'Database was successfully restored to selected checkpoint.');
+          loadTabContent();
+        } catch (err: any) {
+          showAlert('Restore failed', err.message);
         }
       }
-    ]);
+    );
   };
 
   const handleResetUserPassword = (userId: string) => {
-    Alert.alert('Reset Password', 'Are you sure you want to reset this user password to "password123"?', [
-      { text: 'Cancel' },
-      {
-        text: 'Reset',
-        onPress: async () => {
-          try {
-            await api.request(`/api/admin/users/${userId}/reset-password`, { method: 'PUT' });
-            Alert.alert('Password reset completed successfully.');
-          } catch (e: any) {
-            Alert.alert(e.message);
-          }
+    confirmAction(
+      'Reset Password',
+      'Are you sure you want to reset this user password to "password123"?',
+      async () => {
+        try {
+          const res = await api.request<any>(`/api/admin/users/${userId}/reset-password`, {
+            method: 'POST',
+            body: JSON.stringify({ password: 'password123' })
+          });
+          showAlert('Password Reset Complete', res.message || 'Password reset to password123 successfully.');
+        } catch (e: any) {
+          showAlert('Password Reset Failed', e.message);
         }
       }
-    ]);
+    );
   };
 
   const handleToggleUserBan = async (userId: string, currentRole: string) => {
@@ -545,8 +610,23 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
       });
       loadTabContent();
     } catch (e: any) {
-      Alert.alert('Failed to update user role', e.message);
+      showAlert('Failed to update user role', e.message);
     }
+  };
+
+  const handleClearAuditLogs = () => {
+    confirmAction(
+      'Clear Audit Logs',
+      'Are you sure you want to delete all recorded audit logs?',
+      async () => {
+        try {
+          await api.request('/api/admin/security/audit', { method: 'DELETE' });
+          loadTabContent();
+        } catch (err: any) {
+          showAlert('Clear failed', err.message);
+        }
+      }
+    );
   };
 
   // Form setups
@@ -577,6 +657,26 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
     setNewsReadMinutes(String(n.read_minutes || '5'));
     setNewsTags(n.tags || '');
     setFormType('news');
+    setShowFormModal(true);
+  };
+
+  const openAddUser = () => {
+    setEditingId(null);
+    setUserEmail('');
+    setUserPassword('password123');
+    setUserDisplayName('');
+    setUserRole('user');
+    setFormType('user');
+    setShowFormModal(true);
+  };
+
+  const openEditUser = (u: any) => {
+    setEditingId(u.id);
+    setUserEmail(u.email);
+    setUserPassword('');
+    setUserDisplayName(u.display_name || '');
+    setUserRole(u.role || 'user');
+    setFormType('user');
     setShowFormModal(true);
   };
 
@@ -630,6 +730,14 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
     setShowFormModal(true);
   };
 
+  const openReporterPermsModal = (r: any) => {
+    setSelectedReporter(r);
+    setReporterRegion(r.region || 'Hyderabad');
+    setReporterCats(Array.isArray(r.categories) ? r.categories.join(', ') : 'Politics, News');
+    setFormType('reporter-perms');
+    setShowFormModal(true);
+  };
+
   const sidebarItems = [
     { key: 'dashboard', label: '📊 Dashboard' },
     { key: 'topStories', label: '⭐ Top Stories CMS' },
@@ -640,7 +748,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
     { key: 'ads', label: '💵 Ads Campaigns' },
     { key: 'notifications', label: '🔔 Push Notifications' },
     { key: 'media', label: '📁 Media Library' },
-    { key: 'database', label: '🗄️ Database manager' },
+    { key: 'database', label: '🗄️ Database Manager' },
     { key: 'backups', label: '💾 Backup & Restore' },
     { key: 'logs', label: '📜 System Audit Logs' },
   ];
@@ -746,7 +854,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                       </View>
                       <View style={styles.statusBox}>
                         <Text style={{ color: '#10B981', fontSize: 14, fontWeight: '800' }}>● RUNNING</Text>
-                        <Text style={styles.kpiLabel}>RTMP Live Transcoder</Text>
+                        <Text style={styles.kpiLabel}>RTMP Transcoder</Text>
                       </View>
                       <View style={styles.statusBox}>
                         <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>{kpis.cpuUsage}</Text>
@@ -764,7 +872,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 {activeTab === 'news' && (
                   <View>
                     <View style={styles.actionHeader}>
-                      <Text style={styles.sectionHeader}>Platform News Articles</Text>
+                      <Text style={styles.sectionHeader}>Platform News Articles ({newsList.length})</Text>
                       <Pressable style={styles.addBtn} onPress={openAddNews}><Text style={styles.addBtnText}>+ Add News Story</Text></Pressable>
                     </View>
                     <View style={styles.table}>
@@ -793,7 +901,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 {activeTab === 'channels' && (
                   <View>
                     <View style={styles.actionHeader}>
-                      <Text style={styles.sectionHeader}>Official Live Channels</Text>
+                      <Text style={styles.sectionHeader}>Official Live Channels ({channelList.length})</Text>
                       <Pressable style={styles.addBtn} onPress={openAddChannel}><Text style={styles.addBtnText}>+ Create TV Channel</Text></Pressable>
                     </View>
                     <View style={styles.table}>
@@ -823,7 +931,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 {/* 4. REPORTER STATION MANAGER */}
                 {activeTab === 'reporters' && (
                   <View>
-                    <Text style={styles.sectionHeader}>Reporters Review & Access Permissions</Text>
+                    <Text style={styles.sectionHeader}>Reporters Review & Access Permissions ({reporterList.length})</Text>
                     <View style={styles.table}>
                       <View style={styles.thRow}>
                         <Text style={[styles.th, { flex: 2 }]}>Email</Text>
@@ -837,7 +945,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                           <Text style={[styles.tdText, { flex: 1 }]}>{r.display_name || 'N/A'}</Text>
                           <Text style={[styles.tdText, { flex: 1, color: '#10B981' }]}>{r.role.toUpperCase()}</Text>
                           <View style={[styles.tdActions, { flex: 1.5 }]}>
-                            <Pressable style={styles.actionPill} onPress={() => { setSelectedReporter(r); setFormType('reporter-perms'); setShowFormModal(true); }}><Text style={styles.actionPillText}>🔑 Perms</Text></Pressable>
+                            <Pressable style={styles.actionPill} onPress={() => openReporterPermsModal(r)}><Text style={styles.actionPillText}>🔑 Perms</Text></Pressable>
                             <Pressable style={[styles.actionPill, { backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={async () => { await api.request(`/api/admin/reporters/${r.id}/suspend`, { method: 'POST' }); loadTabContent(); }}><Text style={[styles.actionPillText, { color: '#EF4444' }]}>Suspend</Text></Pressable>
                           </View>
                         </View>
@@ -849,25 +957,32 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 {/* 5. USER MANAGEMENT */}
                 {activeTab === 'users' && (
                   <View>
-                    <Text style={styles.sectionHeader}>User Directory Settings</Text>
+                    <View style={styles.actionHeader}>
+                      <Text style={styles.sectionHeader}>User Directory ({userList.length})</Text>
+                      <Pressable style={styles.addBtn} onPress={openAddUser}><Text style={styles.addBtnText}>+ Create User / Admin</Text></Pressable>
+                    </View>
                     <View style={styles.table}>
                       <View style={styles.thRow}>
                         <Text style={[styles.th, { flex: 2 }]}>Email</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Display Name</Text>
                         <Text style={[styles.th, { flex: 1 }]}>Role</Text>
-                        <Text style={[styles.th, { flex: 2, textAlign: 'right' }]}>Administration Checks</Text>
+                        <Text style={[styles.th, { flex: 2.2, textAlign: 'right' }]}>Administration Checks</Text>
                       </View>
                       {userList.map(u => (
                         <View key={u.id} style={styles.trRow}>
                           <Text style={[styles.tdText, { flex: 2 }]} numberOfLines={1}>{u.email}</Text>
-                          <Text style={[styles.tdText, { flex: 1, color: u.role === 'banned' ? '#EF4444' : '#fff' }]}>{u.role}</Text>
-                          <View style={[styles.tdActions, { flex: 2 }]}>
+                          <Text style={[styles.tdText, { flex: 1 }]} numberOfLines={1}>{u.display_name || 'N/A'}</Text>
+                          <Text style={[styles.tdText, { flex: 1, color: u.role === 'banned' ? '#EF4444' : u.role === 'super_admin' ? '#F59E0B' : '#fff' }]}>{u.role}</Text>
+                          <View style={[styles.tdActions, { flex: 2.2 }]}>
+                            <Pressable style={styles.iconBtn} onPress={() => openEditUser(u)}><Text>✏️</Text></Pressable>
                             <Pressable style={styles.actionPill} onPress={() => handleResetUserPassword(u.id)}><Text style={styles.actionPillText}>🔄 Reset PW</Text></Pressable>
                             {u.role === 'user' && (
                               <Pressable style={[styles.actionPill, { backgroundColor: '#3B82F6' }]} onPress={async () => { await api.request(`/api/admin/reporters/${u.id}/approve`, { method: 'POST' }); loadTabContent(); }}><Text style={styles.actionPillText}>🎙️ Make Rep</Text></Pressable>
                             )}
                             <Pressable style={[styles.actionPill, { backgroundColor: u.role === 'banned' ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)' }]} onPress={() => handleToggleUserBan(u.id, u.role)}>
-                              <Text style={[styles.actionPillText, { color: u.role === 'banned' ? '#10B981' : '#EF4444' }]}>{u.role === 'banned' ? 'Activate' : 'Ban User'}</Text>
+                              <Text style={[styles.actionPillText, { color: u.role === 'banned' ? '#10B981' : '#EF4444' }]}>{u.role === 'banned' ? 'Activate' : 'Ban'}</Text>
                             </Pressable>
+                            <Pressable style={[styles.iconBtn, { backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={() => handleDeleteItem(`/api/admin/users/${u.id}`, u.email)}><Text style={{ color: '#EF4444' }}>🗑️</Text></Pressable>
                           </View>
                         </View>
                       ))}
@@ -879,7 +994,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 {activeTab === 'ads' && (
                   <View>
                     <View style={styles.actionHeader}>
-                      <Text style={styles.sectionHeader}>Active Advertising Banners</Text>
+                      <Text style={styles.sectionHeader}>Active Advertising Banners ({adList.length})</Text>
                       <Pressable style={styles.addBtn} onPress={openAddAd}><Text style={styles.addBtnText}>+ Create Campaign</Text></Pressable>
                     </View>
                     <View style={styles.table}>
@@ -894,8 +1009,8 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                         <View key={ad.id} style={styles.trRow}>
                           <Text style={[styles.tdText, { flex: 2 }]} numberOfLines={1}>{ad.title}</Text>
                           <Text style={[styles.tdText, { flex: 1 }]}>{ad.placement}</Text>
-                          <Text style={[styles.tdText, { flex: 1, color: '#3B82F6' }]}>{ad.type.toUpperCase()}</Text>
-                          <Text style={[styles.tdText, { flex: 1 }]}>🖱️ {ad.clicks} / 👁️ {ad.impressions}</Text>
+                          <Text style={[styles.tdText, { flex: 1, color: '#3B82F6' }]}>{(ad.type || 'banner').toUpperCase()}</Text>
+                          <Text style={[styles.tdText, { flex: 1 }]}>🖱️ {ad.clicks || 0} / 👁️ {ad.impressions || 0}</Text>
                           <View style={[styles.tdActions, { flex: 1 }]}>
                             <Pressable style={styles.iconBtn} onPress={() => openEditAd(ad)}><Text>✏️</Text></Pressable>
                             <Pressable style={[styles.iconBtn, { backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={() => handleDeleteItem(`/api/admin/ads/${ad.id}`, ad.id)}><Text style={{ color: '#EF4444' }}>🗑️</Text></Pressable>
@@ -910,12 +1025,36 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 {activeTab === 'notifications' && (
                   <View>
                     <View style={styles.actionHeader}>
-                      <Text style={styles.sectionHeader}>System Broadcast Notifications</Text>
+                      <Text style={styles.sectionHeader}>System Broadcast Notifications ({notificationsList.length})</Text>
                       <Pressable style={styles.addBtn} onPress={() => { setFormType('notification'); setShowFormModal(true); }}><Text style={styles.addBtnText}>+ Send Broadcast</Text></Pressable>
                     </View>
-                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginBottom: 12 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 12 }}>
                       Push notifications broadcast to all connected devices instantly via WebSockets and save records inside users notification feed shelves.
                     </Text>
+                    <View style={styles.table}>
+                      <View style={styles.thRow}>
+                        <Text style={[styles.th, { flex: 1.5 }]}>Title</Text>
+                        <Text style={[styles.th, { flex: 3 }]}>Body</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>User Target</Text>
+                        <Text style={[styles.th, { flex: 1, textAlign: 'right' }]}>Actions</Text>
+                      </View>
+                      {notificationsList.length === 0 ? (
+                        <View style={{ padding: 16 }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>No broadcast notifications found.</Text>
+                        </View>
+                      ) : (
+                        notificationsList.map(n => (
+                          <View key={n.id} style={styles.trRow}>
+                            <Text style={[styles.tdText, { flex: 1.5, fontWeight: '700' }]} numberOfLines={1}>{n.title}</Text>
+                            <Text style={[styles.tdText, { flex: 3 }]} numberOfLines={2}>{n.body}</Text>
+                            <Text style={[styles.tdText, { flex: 1, color: '#3B82F6' }]}>{n.user_id ? `User #${n.user_id.slice(0, 6)}` : 'Broadcast (All)'}</Text>
+                            <View style={[styles.tdActions, { flex: 1 }]}>
+                              <Pressable style={[styles.iconBtn, { backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={() => handleDeleteItem(`/api/admin/notifications/${n.id}`, n.id)}><Text style={{ color: '#EF4444' }}>🗑️</Text></Pressable>
+                            </View>
+                          </View>
+                        ))
+                      )}
+                    </View>
                   </View>
                 )}
 
@@ -923,26 +1062,33 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 {activeTab === 'media' && (
                   <View>
                     <View style={styles.actionHeader}>
-                      <Text style={styles.sectionHeader}>Uploaded Media Directory Assets</Text>
+                      <Text style={styles.sectionHeader}>Uploaded Media Directory Assets ({mediaFiles.length})</Text>
                       <Pressable style={styles.addBtn} onPress={handlePickMediaFile}><Text style={styles.addBtnText}>📤 Upload Media File</Text></Pressable>
                     </View>
                     <View style={styles.grid}>
-                      {mediaFiles.map((file, idx) => (
-                        <View key={idx} style={styles.mediaCard}>
-                          {file.filename.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-                            <Image source={{ uri: `${API_URL}${file.url}` }} style={styles.mediaCardImg} />
-                          ) : (
-                            <View style={[styles.mediaCardImg, { backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center' }]}>
-                              <Text style={{ fontSize: 24 }}>📹</Text>
-                            </View>
-                          )}
-                          <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', marginTop: 6 }} numberOfLines={1}>{file.filename}</Text>
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9 }}>Size: {Math.round(file.size / 1024)} KB</Text>
-                          <Pressable style={styles.mediaDeleteBtn} onPress={() => handleDeleteItem(`/api/admin/media-library/delete?filename=${file.filename}`, file.filename)}>
-                            <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '800' }}>DELETE</Text>
-                          </Pressable>
-                        </View>
-                      ))}
+                      {mediaFiles.map((file, idx) => {
+                        const isImage = file.filename.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i);
+                        const isVideo = file.filename.match(/\.(mp4|webm|mov|m4v|mkv)$/i);
+                        const fileUrl = `${API_URL}${file.url}`;
+                        return (
+                          <View key={idx} style={styles.mediaCard}>
+                            <Pressable onPress={() => openMediaPreview(file)} style={{ alignItems: 'center' }}>
+                              {isImage ? (
+                                <Image source={{ uri: fileUrl }} style={styles.mediaCardImg} />
+                              ) : (
+                                <View style={[styles.mediaCardImg, { backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center' }]}>
+                                  <Text style={{ fontSize: 24 }}>{isVideo ? '📹' : '📁'}</Text>
+                                </View>
+                              )}
+                              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', marginTop: 6, textAlign: 'center' }} numberOfLines={1}>{file.filename}</Text>
+                              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, textAlign: 'center' }}>Size: {Math.round(file.size / 1024)} KB</Text>
+                            </Pressable>
+                            <Pressable style={styles.mediaDeleteBtn} onPress={() => handleDeleteItem(`/api/admin/media-library/delete?filename=${encodeURIComponent(file.filename)}`, file.filename)}>
+                              <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '800' }}>DELETE</Text>
+                            </Pressable>
+                          </View>
+                        );
+                      })}
                     </View>
                   </View>
                 )}
@@ -969,7 +1115,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                         style={[styles.input, { flex: 1, fontFamily: 'monospace', fontSize: 11 }]}
                         value={rawSql}
                         onChangeText={setRawSql}
-                        placeholder="SELECT * FROM users WHERE role='admin';"
+                        placeholder="SELECT * FROM users WHERE role='super_admin';"
                         placeholderTextColor="rgba(255,255,255,0.2)"
                       />
                       <Pressable style={styles.saveBtn} onPress={handleExecuteSql}><Text style={{ color: '#fff', fontWeight: '800' }}>Execute</Text></Pressable>
@@ -1029,7 +1175,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 {activeTab === 'backups' && (
                   <View>
                     <View style={styles.actionHeader}>
-                      <Text style={styles.sectionHeader}>Database Backups Manager</Text>
+                      <Text style={styles.sectionHeader}>Database Backups Manager ({backupsList.length})</Text>
                       <Pressable style={styles.addBtn} onPress={handleCreateBackup}><Text style={styles.addBtnText}>💾 Create Manual Backup</Text></Pressable>
                     </View>
                     <View style={styles.table}>
@@ -1037,16 +1183,17 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                         <Text style={[styles.th, { flex: 2 }]}>Backup Filename</Text>
                         <Text style={[styles.th, { flex: 1 }]}>File Size</Text>
                         <Text style={[styles.th, { flex: 1.5 }]}>Created Date</Text>
-                        <Text style={[styles.th, { flex: 1.5, textAlign: 'right' }]}>Restore Operations</Text>
+                        <Text style={[styles.th, { flex: 2, textAlign: 'right' }]}>Restore Operations</Text>
                       </View>
                       {backupsList.map((back, idx) => (
                         <View key={idx} style={styles.trRow}>
                           <Text style={[styles.tdText, { flex: 2 }]} numberOfLines={1}>{back.filename}</Text>
                           <Text style={[styles.tdText, { flex: 1 }]}>{Math.round(back.size / 1024)} KB</Text>
                           <Text style={[styles.tdText, { flex: 1.5 }]}>{new Date(back.created).toLocaleString()}</Text>
-                          <View style={[styles.tdActions, { flex: 1.5 }]}>
+                          <View style={[styles.tdActions, { flex: 2 }]}>
                             <Pressable style={styles.actionPill} onPress={() => handleRestoreBackup(back.filename)}><Text style={styles.actionPillText}>🔄 Restore</Text></Pressable>
                             <Pressable style={[styles.actionPill, { backgroundColor: 'rgba(255,255,255,0.06)' }]} onPress={() => window.open(`${API_URL}/api/admin/backups/download/${back.filename}`)}><Text style={styles.actionPillText}>📥 Download</Text></Pressable>
+                            <Pressable style={[styles.iconBtn, { backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={() => handleDeleteItem(`/api/admin/backups/${back.filename}`, back.filename)}><Text style={{ color: '#EF4444' }}>🗑️</Text></Pressable>
                           </View>
                         </View>
                       ))}
@@ -1057,7 +1204,10 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 {/* 11. AUDIT LOGS VIEW */}
                 {activeTab === 'logs' && (
                   <View>
-                    <Text style={styles.sectionHeader}>Administrative Audit Log Trails</Text>
+                    <View style={styles.actionHeader}>
+                      <Text style={styles.sectionHeader}>Administrative Audit Log Trails ({auditLogsList.length})</Text>
+                      <Pressable style={[styles.addBtn, { backgroundColor: '#EF4444' }]} onPress={handleClearAuditLogs}><Text style={styles.addBtnText}>🗑️ Clear Audit Logs</Text></Pressable>
+                    </View>
                     <View style={styles.table}>
                       <View style={styles.thRow}>
                         <Text style={[styles.th, { flex: 1 }]}>User ID</Text>
@@ -1084,6 +1234,82 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
         </View>
       </View>
 
+      {/* Full-size Media Asset Preview Modal */}
+      <Modal visible={showMediaPreviewModal} animationType="fade" transparent={true} onRequestClose={() => setShowMediaPreviewModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { maxWidth: 800 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle} numberOfLines={1}>🖼️ Media Viewer — {previewMediaFile?.filename}</Text>
+              <Pressable onPress={() => setShowMediaPreviewModal(false)}><Text style={{ color: '#fff', fontSize: 20 }}>✕</Text></Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16, alignItems: 'center' }}>
+              {previewMediaFile && (
+                <View style={{ width: '100%', alignItems: 'center' }}>
+                  {previewMediaFile.filename.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i) ? (
+                    <Image
+                      source={{ uri: `${API_URL}${previewMediaFile.url}` }}
+                      style={{ width: '100%', height: 420, borderRadius: 8 }}
+                      resizeMode="contain"
+                    />
+                  ) : previewMediaFile.filename.match(/\.(mp4|webm|mov|m4v|mkv)$/i) ? (
+                    Platform.OS === 'web' ? (
+                      // @ts-ignore
+                      <video
+                        src={`${API_URL}${previewMediaFile.url}`}
+                        controls
+                        autoPlay
+                        style={{ width: '100%', maxHeight: 420, borderRadius: 8, backgroundColor: '#000' }}
+                      />
+                    ) : (
+                      <View style={{ width: '100%', height: 300, backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center', borderRadius: 8 }}>
+                        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>📹 Video Asset: {previewMediaFile.filename}</Text>
+                      </View>
+                    )
+                  ) : (
+                    <View style={{ padding: 40, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 48 }}>📁</Text>
+                      <Text style={{ color: '#fff', fontSize: 14, marginTop: 10 }}>{previewMediaFile.filename}</Text>
+                    </View>
+                  )}
+
+                  {/* Details Box */}
+                  <View style={{ width: '100%', marginTop: 16, padding: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800', marginBottom: 6 }}>Asset Details</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>Filename: <Text style={{ color: '#fff' }}>{previewMediaFile.filename}</Text></Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>File Size: <Text style={{ color: '#fff' }}>{Math.round(previewMediaFile.size / 1024)} KB ({(previewMediaFile.size / (1024 * 1024)).toFixed(2)} MB)</Text></Text>
+                    {previewMediaFile.created && (
+                      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }}>Uploaded: <Text style={{ color: '#fff' }}>{new Date(previewMediaFile.created).toLocaleString()}</Text></Text>
+                    )}
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 2 }} numberOfLines={1}>Direct URL: <Text style={{ color: '#3B82F6' }}>{`${API_URL}${previewMediaFile.url}`}</Text></Text>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <Pressable
+                style={[styles.cancelBtn, { backgroundColor: '#3B82F6' }]}
+                onPress={() => window.open(`${API_URL}${previewMediaFile?.url}`, '_blank')}
+              >
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 11 }}>🔗 Open Original</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.cancelBtn, { backgroundColor: 'rgba(239,68,68,0.2)' }]}
+                onPress={() => {
+                  const file = previewMediaFile;
+                  setShowMediaPreviewModal(false);
+                  if (file) handleDeleteItem(`/api/admin/media-library/delete?filename=${encodeURIComponent(file.filename)}`, file.filename);
+                }}
+              >
+                <Text style={{ color: '#EF4444', fontWeight: '700', fontSize: 11 }}>🗑️ Delete File</Text>
+              </Pressable>
+              <Pressable style={styles.saveBtn} onPress={() => setShowMediaPreviewModal(false)}>
+                <Text style={{ color: '#fff', fontWeight: '800', fontSize: 11 }}>Close</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Unified Modals Wizard Form */}
       <Modal visible={showFormModal} animationType="fade" transparent={true} onRequestClose={() => setShowFormModal(false)}>
         <View style={styles.modalBackdrop}>
@@ -1093,6 +1319,24 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
               <Pressable onPress={() => setShowFormModal(false)}><Text style={{ color: '#fff', fontSize: 20 }}>✕</Text></Pressable>
             </View>
             <ScrollView contentContainerStyle={styles.formContainer}>
+              {/* USER CREATION / EDIT FORM */}
+              {formType === 'user' && (
+                <View>
+                  <Text style={styles.label}>Account Email *</Text>
+                  <TextInput style={styles.input} value={userEmail} onChangeText={setUserEmail} placeholder="user@nexusplay.app" placeholderTextColor="rgba(255,255,255,0.2)" editable={!editingId} />
+                  {!editingId && (
+                    <>
+                      <Text style={styles.label}>Initial Password *</Text>
+                      <TextInput style={styles.input} secureTextEntry value={userPassword} onChangeText={setUserPassword} placeholder="password123" placeholderTextColor="rgba(255,255,255,0.2)" />
+                    </>
+                  )}
+                  <Text style={styles.label}>Display Name *</Text>
+                  <TextInput style={styles.input} value={userDisplayName} onChangeText={setUserDisplayName} placeholder="John Doe" placeholderTextColor="rgba(255,255,255,0.2)" />
+                  <Text style={styles.label}>Assigned Role (user, reporter, news_reader, admin, super_admin, banned)</Text>
+                  <TextInput style={styles.input} value={userRole} onChangeText={setUserRole} placeholder="user" placeholderTextColor="rgba(255,255,255,0.2)" />
+                </View>
+              )}
+
               {/* NEWS EDITOR */}
               {formType === 'news' && (
                 <View>
@@ -1176,7 +1420,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 <View>
                   <Text style={styles.label}>Notification Header Title *</Text>
                   <TextInput style={styles.input} value={notifyTitle} onChangeText={setNotifyTitle} placeholder="Breaking News Alert!" placeholderTextColor="rgba(255,255,255,0.2)" />
-                  <Text style={styles.label}>Notification Body Body *</Text>
+                  <Text style={styles.label}>Notification Body *</Text>
                   <TextInput style={[styles.input, { height: 60 }]} multiline value={notifyBody} onChangeText={setNotifyBody} placeholder="Details" placeholderTextColor="rgba(255,255,255,0.2)" />
                   <Text style={styles.label}>Specific User Target ID (Optional, Blank = All Users)</Text>
                   <TextInput style={styles.input} value={notifyUserTarget} onChangeText={setNotifyUserTarget} placeholder="User profile id" placeholderTextColor="rgba(255,255,255,0.2)" />
@@ -1200,6 +1444,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 onPress={() => {
                   if (formType === 'news') handleSaveNews();
                   else if (formType === 'channel') handleSaveChannel();
+                  else if (formType === 'user') handleSaveUser();
                   else if (formType === 'ad') handleSaveAd();
                   else if (formType === 'notification') handleSendNotification();
                   else if (formType === 'reporter-perms') handleSaveReporterPerms();
@@ -1267,15 +1512,15 @@ const styles = StyleSheet.create({
   th: { color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
   trRow: { flexDirection: 'row', padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)', alignItems: 'center' },
   tdText: { color: '#fff', fontSize: 12 },
-  tdActions: { flexDirection: 'row', gap: 6, justifyContent: 'flex-end' },
-  iconBtn: { width: 22, height: 22, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center' },
+  tdActions: { flexDirection: 'row', gap: 6, justifyContent: 'flex-end', alignItems: 'center' },
+  iconBtn: { width: 26, height: 26, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center' },
   actionPill: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   actionPillText: { color: '#fff', fontSize: 10, fontWeight: '800' },
   filterPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   filterPillActive: { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
   filterPillText: { color: '#fff', fontSize: 9, fontWeight: '800' },
-  mediaCard: { width: 100, backgroundColor: 'rgba(255,255,255,0.02)', borderRightWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 8, borderRadius: 6 },
-  mediaCardImg: { width: 84, height: 60, borderRadius: 4, resizeMode: 'cover' },
+  mediaCard: { width: 110, backgroundColor: 'rgba(255,255,255,0.02)', borderRightWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 8, borderRadius: 6 },
+  mediaCardImg: { width: 94, height: 68, borderRadius: 4, resizeMode: 'cover' },
   mediaDeleteBtn: { marginTop: 6, backgroundColor: 'rgba(239,68,68,0.15)', paddingVertical: 3, borderRadius: 3, alignItems: 'center' },
 
   // Modal styles

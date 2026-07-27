@@ -66,3 +66,36 @@ export async function requestMicrophonePermission(): Promise<boolean> {
     }
   }
 }
+
+/**
+ * Request GPS / Location permission.
+ */
+export async function requestLocationPermission(): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      throw new Error('Geolocation is not supported in this browser environment.');
+    }
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        () => resolve(true),
+        (err) => {
+          if (err.code === err.PERMISSION_DENIED) {
+            reject(new Error('Location access denied. Please allow location permissions in browser settings.'));
+          } else {
+            resolve(true); // Ignore other errors like timeout to avoid blocking the user
+          }
+        },
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 10000 }
+      );
+    });
+  } else {
+    try {
+      const Location = require('expo-location');
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      return status === 'granted';
+    } catch (err) {
+      console.warn('[Permissions] Native location request failed:', err);
+      return false;
+    }
+  }
+}

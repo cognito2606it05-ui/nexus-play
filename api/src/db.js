@@ -739,6 +739,12 @@ export function initSchema() {
   } catch (e) {}
 
   try {
+    db.exec('ALTER TABLE audit_logs ADD COLUMN ip_address TEXT;');
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE audit_logs ADD COLUMN user_agent TEXT;');
+  } catch (e) {}
+  try {
     db.exec('ALTER TABLE reels ADD COLUMN blur_regions TEXT;');
   } catch (e) {}
   try {

@@ -1215,6 +1215,9 @@ export default function LiveScreen({ route }: { route?: any }) {
     }
     stopTracks();
     
+    // Give browser MediaRecorder onstop callback time to start recording upload
+    await new Promise((r) => setTimeout(r, 1200));
+
     try {
       await api.stopStream(myStream.id);
     } catch (err) {

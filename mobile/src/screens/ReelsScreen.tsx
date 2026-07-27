@@ -14,6 +14,7 @@ import type { Reel } from '../types';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { AppHeader } from '../components/AppHeader';
+import { requestLocationPermission } from '../utils/permissions';
 
 const LOCATION_SUGGESTIONS = [
   'Visakhapatnam, AP',
@@ -312,8 +313,16 @@ export default function ReelsScreen() {
   }, [reels]);
 
   // Geolocation - Broadcaster retrieves current GPS location and reverse-geocodes it
-  const handleGetCurrentLocation = () => {
+  const handleGetCurrentLocation = async () => {
     setIsLocating(true);
+    try {
+      await requestLocationPermission();
+    } catch (permErr: any) {
+      console.warn('Location permission failed:', permErr);
+      alert(permErr.message || 'Location access is required to use GPS.');
+      setIsLocating(false);
+      return;
+    }
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         async (position) => {

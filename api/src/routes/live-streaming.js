@@ -46,8 +46,26 @@ async function finalizeRecordingAndUpload(stream, newsId, req) {
   const genThumbFilename = `stream-rec-cover-${streamId}.jpg`;
 
   try {
-    const localVideoPath = resolve(PROJECT_ROOT, 'uploads', filename);
+    const archivePath = resolve(PROJECT_ROOT, 'uploads', filename);
+    const recMp4Path = resolve(PROJECT_ROOT, 'uploads', `stream-recording-${streamId}.mp4`);
+    const recWebmPath = resolve(PROJECT_ROOT, 'uploads', `stream-recording-${streamId}.webm`);
     const introPath = resolve(PROJECT_ROOT, 'uploads', 'intro.mp4');
+
+    let localVideoPath = archivePath;
+    for (let i = 0; i < 10; i++) {
+      if (existsSync(archivePath)) { localVideoPath = archivePath; break; }
+      if (existsSync(recMp4Path)) {
+        try { writeFileSync(archivePath, readFileSync(recMp4Path)); localVideoPath = archivePath; break; } catch (e) {}
+      }
+      if (existsSync(recWebmPath)) {
+        try {
+          await transcodeWebmToMp4(recWebmPath, archivePath);
+          if (existsSync(archivePath)) { localVideoPath = archivePath; break; }
+        } catch (e) {}
+      }
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
     if (!existsSync(localVideoPath)) {
       if (existsSync(introPath)) {
         writeFileSync(localVideoPath, readFileSync(introPath));

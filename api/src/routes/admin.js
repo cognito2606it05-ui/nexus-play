@@ -286,20 +286,50 @@ router.delete('/users/:id', (req, res) => {
   }
 });
 
-// POST /api/admin/users/:id/reset-password
-router.post('/users/:id/reset-password', (req, res) => {
+// POST/PUT /api/admin/users/:id/reset-password
+const handleResetPassword = (req, res) => {
   const { password } = req.body || {};
-  if (!password) return res.status(400).json({ error: 'Password is required' });
+  const newPassword = password || 'password123';
 
   try {
     const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.params.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const hash = hashPassword(password);
+    const hash = hashPassword(newPassword);
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, req.params.id);
 
     logAudit(req.user.id, 'Reset Password', user.email);
-    res.json({ success: true });
+    res.json({ success: true, message: `Password reset to: ${newPassword}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+router.post('/users/:id/reset-password', handleResetPassword);
+router.put('/users/:id/reset-password', handleResetPassword);
+
+// POST /api/admin/users - Create User Account
+router.post('/users', (req, res) => {
+  const { email, password, displayName, role } = req.body || {};
+  if (!email || !password || !displayName) {
+    return res.status(400).json({ error: 'Email, password, and displayName are required' });
+  }
+
+  try {
+    const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (exists) return res.status(400).json({ error: 'Email already registered' });
+
+    const newId = randomUUID();
+    const hash = hashPassword(password);
+    const nowStr = new Date().toISOString();
+
+    db.prepare('INSERT INTO users (id, email, password_hash, display_name, role, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(newId, email, hash, displayName, role || 'user', nowStr);
+
+    db.prepare('INSERT INTO profiles (id, user_id, name, avatar_url, color, is_kids, subscribed, created_at) VALUES (?, ?, ?, ?, ?, 0, 0, ?)')
+      .run(randomUUID(), newId, displayName, '/media/avatars/animated_1.png', '#3B82F6', nowStr);
+
+    logAudit(req.user.id, `Create User Account (${role || 'user'})`, email);
+    res.status(201).json({ success: true, id: newId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -914,6 +944,27 @@ router.post('/notifications/send', (req, res) => {
   }
 });
 
+// GET /api/admin/notifications - Get all sent broadcast notifications
+router.get('/notifications', (req, res) => {
+  try {
+    const rows = db.prepare("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 100").all();
+    res.json({ data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/notifications/:id
+router.delete('/notifications/:id', (req, res) => {
+  try {
+    db.prepare('DELETE FROM notifications WHERE id = ?').run(req.params.id);
+    logAudit(req, 'Delete Notification', req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 7. Database Inspector APIs
 router.get('/database/tables', (req, res) => {
   try {
@@ -1033,16 +1084,26 @@ router.post('/backups/restore', (req, res) => {
   }
 });
 
-router.get('/backups/download/:filename', (req, res) => {
+router.delete('/backups/:filename', (req, res) => {
   try {
     const filepath = resolve(PROJECT_ROOT, 'backups', req.params.filename);
-    if (!existsSync(filepath)) return res.status(404).json({ error: 'Backup not found' });
-    
-    res.setHeader('Content-Type', 'application/octet-stream');
-    res.setHeader('Content-Disposition', `attachment; filename="${req.params.filename}"`);
-    const stream = createReadStream(filepath);
-    stream.pipe(res);
+    if (existsSync(filepath)) {
+      unlinkSync(filepath);
+      logAudit(req, 'Delete Database Backup File', req.params.filename);
+    }
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+router.delete('/security/audit', (req, res) => {
+  try {
+    db.prepare('DELETE FROM audit_logs').run();
+    logAudit(req, 'Clear All Security Audit Logs', 'system');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
