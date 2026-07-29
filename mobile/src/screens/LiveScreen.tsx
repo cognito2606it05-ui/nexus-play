@@ -752,20 +752,22 @@ export default function LiveScreen({ route }: { route?: any }) {
 
   // Handle direct navigation to a stream from route params
   useEffect(() => {
-    if (routeStreamId && officialChannels.length > 0) {
-      const official = officialChannels.find((c) => c.id === routeStreamId);
-      if (official) {
-        setSelectedStream(official);
-        setActiveTab('channels');
-      } else {
-        api.getStreams().then((res) => {
-          const found = res.data.find((s: any) => s.id === routeStreamId);
-          if (found) {
-            setSelectedStream(found);
-            setActiveTab('users');
-          }
-        }).catch((err) => console.error(err));
+    if (routeStreamId) {
+      if (officialChannels.length > 0) {
+        const official = officialChannels.find((c) => c.id === routeStreamId);
+        if (official) {
+          setSelectedStream(official);
+          setActiveTab('channels');
+          return;
+        }
       }
+      api.getStreams().then((res) => {
+        const found = res.data.find((s: any) => s.id === routeStreamId);
+        if (found) {
+          setSelectedStream(found);
+          setActiveTab('users');
+        }
+      }).catch((err) => console.error(err));
     }
   }, [routeStreamId, officialChannels]);
 

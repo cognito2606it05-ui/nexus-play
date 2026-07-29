@@ -1583,7 +1583,7 @@ export default function HomeScreen() {
                 <HoverPressable
                   key={reel.id}
                   style={styles.storyItem}
-                  onPress={() => navigation.navigate('News', { tab: 'Reels', reelId: reel.id })}
+                  onPress={() => navigation.navigate('Reels', { initialReelId: reel.id })}
                 >
                   <View style={styles.storyRingContainer}>
                     <View style={[styles.storyRingReel, { borderColor: colors.primary }]} />
