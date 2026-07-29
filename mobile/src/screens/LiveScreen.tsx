@@ -193,6 +193,14 @@ function FallbackPlayerView({ videoUrl }: { videoUrl: string }) {
 }
 
 function TVChannelPlayer({ uri }: { uri: string }) {
+  const [isMuted, setIsMuted] = useState(true);
+  const [hasError, setHasError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  if (hasError || !uri) {
+    return <FallbackPlayerView videoUrl={LIVE_SRC} />;
+  }
+
   if (Platform.OS === 'web' && (uri.includes('youtube.com') || uri.includes('youtu.be'))) {
     let videoId = '';
     if (uri.includes('youtu.be/')) {
@@ -204,32 +212,80 @@ function TVChannelPlayer({ uri }: { uri: string }) {
     } else if (uri.includes('live/')) {
       videoId = uri.split('live/')[1]?.split('?')[0];
     }
+
+    if (!videoId) {
+      return <FallbackPlayerView videoUrl={LIVE_SRC} />;
+    }
+
+    const muteParam = isMuted ? '1' : '0';
+    const iframeSrc = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${muteParam}&enablejsapi=1&rel=0&modestbranding=1&controls=1&playsinline=1`;
+
     return (
-      <View style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <View style={{ position: 'relative', width: '100%', height: '100%', backgroundColor: '#000' }}>
         <iframe
+          key={`${videoId}-${isMuted}-${reloadKey}`}
           width="100%"
           height="100%"
-          src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&modestbranding=1`}
+          src={iframeSrc}
           frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
           style={{ border: 'none', width: '100%', height: '100%', backgroundColor: '#000' }}
+          onError={() => setHasError(true)}
         />
-        {/* Top Title/Share Block Overlay to prevent YouTube redirect */}
+
+        {/* Control Bar Overlay for Audio Toggle & Refresh */}
+        <View style={{ position: 'absolute', bottom: 16, left: 16, flexDirection: 'row', gap: 10, zIndex: 10 }}>
+          <Pressable
+            onPress={() => setIsMuted(!isMuted)}
+            style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.85)',
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.25)',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer'
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
+              {isMuted ? '🔇 Audio Muted (Click to Unmute)' : '🔊 Audio Active'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setReloadKey((prev) => prev + 1)}
+            style={{
+              backgroundColor: 'rgba(15, 23, 42, 0.85)',
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: 'rgba(255, 255, 255, 0.25)',
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+              cursor: 'pointer'
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
+              🔄 Reload Stream
+            </Text>
+          </Pressable>
+        </View>
+
+        {/* Top Overlay to prevent header link redirection */}
         <Pressable
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 50, backgroundColor: 'transparent' }}
-          onPress={(e) => { e.stopPropagation(); }}
-        />
-        {/* Bottom Right YouTube Logo Block Overlay to prevent YouTube redirect */}
-        <Pressable
-          style={{ position: 'absolute', bottom: 0, right: 0, width: 85, height: 40, backgroundColor: 'transparent' }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 40, backgroundColor: 'transparent' }}
           onPress={(e) => { e.stopPropagation(); }}
         />
       </View>
     );
   }
 
-  // Fallback for native
   return <FallbackPlayerView videoUrl={uri.includes('http') && !uri.includes('youtube') ? uri : LIVE_SRC} />;
 }
 

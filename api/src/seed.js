@@ -109,12 +109,12 @@ function clearAll() {
 
 function seedOfficialChannelsOnly() {
   const officialChannels = [
-    { id: 'n1', name: 'NEXUS News 24 Live', category: 'News', now_playing: "Press Conference by Sri Anagani Satya Prasad, Hon'ble Minister for Revenue & Registration and Stamps", next_up: 'World Tonight', is_official: 1, viewers: 24200, video_url: 'https://youtube.com/live/5-TNCQDznZI?feature=share' },
-    { id: 'n2', name: 'Global News Live', category: 'News', now_playing: 'International Report', next_up: 'Business Pulse', is_official: 1, viewers: 18500, video_url: 'https://www.youtube.com/watch?v=faD85hMfZLQ' },
-    { id: 'm1', name: 'NEXUS Cinema Live', category: 'Movies', now_playing: '24/7 Blockbuster Live', next_up: 'Classic Hour', is_official: 1, viewers: 15400, video_url: 'https://www.youtube.com/watch?v=MJ6A93vJ7ag' },
-    { id: 'm2', name: 'Action Movies Live', category: 'Movies', now_playing: 'Live Action Thriller', next_up: 'Midnight Specials', is_official: 1, viewers: 12900, video_url: 'https://www.youtube.com/watch?v=igcstjLsLsA' },
-    { id: 's1', name: 'NEXUS Sports Live', category: 'Sports', now_playing: 'Live Sports Action', next_up: 'Sports Center', is_official: 1, viewers: 39500, video_url: 'https://www.youtube.com/watch?v=NppdfDcG2a0' },
-    { id: 's2', name: 'Grand Arena Sports', category: 'Sports', now_playing: 'Championship Live', next_up: 'Daily Highlights', is_official: 1, viewers: 28400, video_url: 'https://www.youtube.com/watch?v=Sxk6VREv-5I' },
+    { id: 'n1', name: 'NEXUS News 24 Live', category: 'News', now_playing: '24/7 Global Breaking News & Regional Updates', next_up: 'World Tonight Live', is_official: 1, viewers: 24200, video_url: 'https://www.youtube.com/watch?v=gCNeDWCI0vo' },
+    { id: 'n2', name: 'Global News Live', category: 'News', now_playing: 'NASA TV Official 24/7 Earth & Space Stream', next_up: 'Business Pulse', is_official: 1, viewers: 18500, video_url: 'https://www.youtube.com/watch?v=21X5lGlDOfg' },
+    { id: 'm1', name: 'NEXUS Cinema Live', category: 'Movies', now_playing: '24/7 Blockbuster Movie Specials', next_up: 'Classic Hour', is_official: 1, viewers: 15400, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' },
+    { id: 'm2', name: 'Action Movies Live', category: 'Movies', now_playing: 'Live Action Thriller Showcase', next_up: 'Midnight Specials', is_official: 1, viewers: 12900, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' },
+    { id: 's1', name: 'NEXUS Sports Live', category: 'Sports', now_playing: 'Live Sports Action & Championship Highlights', next_up: 'Sports Center', is_official: 1, viewers: 39500, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
+    { id: 's2', name: 'Grand Arena Sports', category: 'Sports', now_playing: 'Grand Championship Live & Daily Highlights', next_up: 'Daily Highlights', is_official: 1, viewers: 28400, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4' },
   ];
 
   const insChannel = db.prepare(`
@@ -608,12 +608,12 @@ export async function seed({ reset = false } = {}) {
 
   // ---- Seed Official TV Channels ----
   const officialChannels = [
-    { id: 'n1', name: 'NEXUS News 24 Live', category: 'News', now_playing: "Press Conference by Sri Anagani Satya Prasad, Hon'ble Minister for Revenue & Registration and Stamps", next_up: 'World Tonight', is_official: 1, viewers: 24200, video_url: 'https://youtube.com/live/5-TNCQDznZI?feature=share' },
-    { id: 'n2', name: 'Global News Live', category: 'News', now_playing: 'International Report', next_up: 'Business Pulse', is_official: 1, viewers: 18500, video_url: 'https://www.youtube.com/watch?v=faD85hMfZLQ' },
-    { id: 'm1', name: 'NEXUS Cinema Live', category: 'Movies', now_playing: '24/7 Blockbuster Live', next_up: 'Classic Hour', is_official: 1, viewers: 15400, video_url: 'https://www.youtube.com/watch?v=MJ6A93vJ7ag' },
-    { id: 'm2', name: 'Action Movies Live', category: 'Movies', now_playing: 'Live Action Thriller', next_up: 'Midnight Specials', is_official: 1, viewers: 12900, video_url: 'https://www.youtube.com/watch?v=igcstjLsLsA' },
-    { id: 's1', name: 'NEXUS Sports Live', category: 'Sports', now_playing: 'Live Sports Action', next_up: 'Sports Center', is_official: 1, viewers: 39500, video_url: 'https://www.youtube.com/watch?v=NppdfDcG2a0' },
-    { id: 's2', name: 'Grand Arena Sports', category: 'Sports', now_playing: 'Championship Live', next_up: 'Daily Highlights', is_official: 1, viewers: 28400, video_url: 'https://www.youtube.com/watch?v=Sxk6VREv-5I' },
+    { id: 'n1', name: 'NEXUS News 24 Live', category: 'News', now_playing: '24/7 Global Breaking News & Regional Updates', next_up: 'World Tonight Live', is_official: 1, viewers: 24200, video_url: 'https://www.youtube.com/watch?v=gCNeDWCI0vo' },
+    { id: 'n2', name: 'Global News Live', category: 'News', now_playing: 'NASA TV Official 24/7 Earth & Space Stream', next_up: 'Business Pulse', is_official: 1, viewers: 18500, video_url: 'https://www.youtube.com/watch?v=21X5lGlDOfg' },
+    { id: 'm1', name: 'NEXUS Cinema Live', category: 'Movies', now_playing: '24/7 Blockbuster Movie Specials', next_up: 'Classic Hour', is_official: 1, viewers: 15400, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' },
+    { id: 'm2', name: 'Action Movies Live', category: 'Movies', now_playing: 'Live Action Thriller Showcase', next_up: 'Midnight Specials', is_official: 1, viewers: 12900, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' },
+    { id: 's1', name: 'NEXUS Sports Live', category: 'Sports', now_playing: 'Live Sports Action & Championship Highlights', next_up: 'Sports Center', is_official: 1, viewers: 39500, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
+    { id: 's2', name: 'Grand Arena Sports', category: 'Sports', now_playing: 'Grand Championship Live & Daily Highlights', next_up: 'Daily Highlights', is_official: 1, viewers: 28400, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4' },
   ];
 
   const insChannel = db.prepare(`

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
@@ -53,15 +54,32 @@ class _ProfileGateScreenState extends State<ProfileGateScreen> {
         'color': _selectedColor,
       });
       await auth.refreshProfiles();
-      setState(() {
-        _adding = false;
-        _nameController.clear();
-        _selectedColor = swatches[0];
-      });
+      if (mounted) {
+        setState(() {
+          _adding = false;
+          _nameController.clear();
+          _selectedColor = swatches[0];
+        });
+      }
     } catch (e) {
-      setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) {
+        String message = e.toString();
+        if (e is DioException) {
+          final data = e.response?.data;
+          if (data is Map && data.containsKey('message')) {
+            message = data['message'].toString();
+          } else if (data is Map && data.containsKey('error')) {
+            message = data['error'].toString();
+          } else if (e.message != null && e.message!.isNotEmpty) {
+            message = e.message!;
+          }
+        }
+        setState(() => _error = message.replaceFirst('Exception: ', ''));
+      }
     } finally {
-      setState(() => _busy = false);
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 

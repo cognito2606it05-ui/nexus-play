@@ -39,6 +39,7 @@ class ApiClient {
           return handler.next(options);
         },
         onError: (err, handler) async {
+          debugPrint('[ApiClient] API Error: ${err.requestOptions.path} [${err.response?.statusCode}] -> ${err.response?.data}');
           // Attempt automatic token refresh on 401 Unauthorized
           if (err.response?.statusCode == 401 && _refreshToken != null) {
             final isRefreshed = await _tryTokenRefresh();
@@ -150,7 +151,7 @@ class ApiClient {
   Future<AuthResponse> verifyOtp(String phone, String otp) async {
     final response = await _dio.post('/api/auth/verify-otp', data: {
       'phone': phone,
-      'otp': otp,
+      'otp': int.tryParse(otp) ?? otp,
     });
     final res = AuthResponse.fromJson(response.data as Map<String, dynamic>);
     setTokens(accessToken: res.accessToken, refreshToken: res.refreshToken);
