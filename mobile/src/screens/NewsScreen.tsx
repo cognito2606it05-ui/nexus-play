@@ -330,6 +330,9 @@ export default function NewsScreen({ route }: { route?: any }) {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<any | null>(null);
+  const [imageZoomScale, setImageZoomScale] = useState(1);
+  const [showImageZoomModal, setShowImageZoomModal] = useState(false);
+  const lastTapRef = useRef<number>(0);
   const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [showAssistant, setShowAssistant] = useState(false);
@@ -445,7 +448,10 @@ export default function NewsScreen({ route }: { route?: any }) {
   // Route parameters listener for deep linking
   useEffect(() => {
     if (route?.params?.tab) {
-      setSelectedTab(route.params.tab);
+      setSelectedTab(route.params.tab as any);
+    }
+    if (route?.params?.searchQuery !== undefined) {
+      setSearchQuery(route.params.searchQuery);
     }
     const targetId = route?.params?.newsId || route?.params?.itemId;
     if (targetId) {
@@ -460,7 +466,7 @@ export default function NewsScreen({ route }: { route?: any }) {
         });
       }
     }
-  }, [route?.params?.tab, route?.params?.itemId, route?.params?.newsId, news]);
+  }, [route?.params?.tab, route?.params?.itemId, route?.params?.newsId, route?.params?.searchQuery, news]);
 
   // Load Tab Data depending on selected tab
   const loadTabData = async () => {
@@ -1618,19 +1624,19 @@ export default function NewsScreen({ route }: { route?: any }) {
         
         {selectedTab === 'News' && (
           <HoverPressable style={styles.uploadHeaderBtn} onPress={() => setShowUploadModal(true)}>
-            <Text style={styles.uploadHeaderBtnText}>＋ Add News</Text>
+            <Text style={styles.uploadHeaderBtnText}>＋ <Translate text="Add News" /></Text>
           </HoverPressable>
         )}
 
         {selectedTab === 'Reels' && (
           <HoverPressable style={styles.uploadHeaderBtn} onPress={() => setShowUploadReelModal(true)}>
-            <Text style={styles.uploadHeaderBtnText}>＋ Upload Reel</Text>
+            <Text style={styles.uploadHeaderBtnText}>＋ <Translate text="Upload Reel" /></Text>
           </HoverPressable>
         )}
 
         {selectedTab === 'Posts' && (
           <HoverPressable style={styles.uploadHeaderBtn} onPress={() => setShowCreatePostModal(true)}>
-            <Text style={styles.uploadHeaderBtnText}>＋ Share Update</Text>
+            <Text style={styles.uploadHeaderBtnText}>＋ <Translate text="Share Update" /></Text>
           </HoverPressable>
         )}
       </View>
@@ -1670,7 +1676,7 @@ export default function NewsScreen({ route }: { route?: any }) {
                 onPress={() => handleRegionChange(reg.id)}
               >
                 <Text style={[styles.regionTabText, region === reg.id && styles.regionTabTextActive]}>
-                  {reg.label}
+                  <Translate text={reg.label} />
                 </Text>
               </Pressable>
             ))}
@@ -1684,7 +1690,7 @@ export default function NewsScreen({ route }: { route?: any }) {
                 onPress={() => setShowDistrictDropdown(!showDistrictDropdown)}
               >
                 <Text style={styles.dropdownText}>
-                  📍 Zone District: <Text style={{ color: colors.accent, fontWeight: '900' }}>{selectedDistrict}</Text> ▾
+                  📍 <Translate text="Zone District" />: <Text style={{ color: colors.accent, fontWeight: '900' }}><Translate text={selectedDistrict} /></Text> ▾
                 </Text>
               </Pressable>
 
@@ -1701,7 +1707,7 @@ export default function NewsScreen({ route }: { route?: any }) {
                         }}
                       >
                         <Text style={[styles.dropdownItemText, selectedDistrict === dist && { color: colors.accent, fontWeight: '700' }]}>
-                          {dist}
+                          <Translate text={dist} />
                         </Text>
                       </Pressable>
                     ))}
@@ -1754,25 +1760,28 @@ export default function NewsScreen({ route }: { route?: any }) {
                   const needsBlur = item.needsBlur;
                   const canDelete = item.source === activeProfile?.name || user?.role === 'super_admin';
 
-                  return (
-                    <HoverPressable
-                      style={[styles.article, { position: 'relative' }]}
-                      onPress={() => setSelectedArticle(item)}
-                    >
-                      <View style={{ position: 'relative', width: 110, height: 110 }}>
-                        <View style={[
-                          styles.thumb,
-                          { overflow: 'hidden' },
-                          needsBlur && Platform.OS === 'web' && { filter: 'blur(30px)', WebkitFilter: 'blur(30px)' } as any
-                        ]}>
-                          <Image 
-                            source={{ uri: item.imageUrl }} 
-                            style={StyleSheet.absoluteFill} 
-                            blurRadius={needsBlur ? 30 : 0}
-                          />
-                          <BlurRegionsOverlay regions={item.blurRegions} />
+                    const imgW = isDesktop ? 240 : 130;
+                    const imgH = isDesktop ? 145 : 105;
+
+                    return (
+                      <HoverPressable
+                        style={[styles.article, { position: 'relative' }]}
+                        onPress={() => setSelectedArticle(item)}
+                      >
+                        <View style={{ position: 'relative', width: imgW, height: imgH }}>
+                          <View style={[
+                            styles.thumb,
+                            { width: imgW, height: imgH, overflow: 'hidden' },
+                            needsBlur && Platform.OS === 'web' && { filter: 'blur(30px)', WebkitFilter: 'blur(30px)' } as any
+                          ]}>
+                            <Image 
+                              source={{ uri: item.imageUrl }} 
+                              style={StyleSheet.absoluteFill} 
+                              blurRadius={needsBlur ? 30 : 0}
+                            />
+                            <BlurRegionsOverlay regions={item.blurRegions} />
+                          </View>
                         </View>
-                      </View>
 
                       <View style={styles.articleBody}>
                         {item.needsBlur && item.blurReason && (
@@ -1810,69 +1819,70 @@ export default function NewsScreen({ route }: { route?: any }) {
             )
           )}
 
-          {selectedTab === 'Reels' && (
-            reels.length === 0 ? (
+          {selectedTab === 'Reels' && (() => {
+            const effectiveH = reelsSize.h > 0 ? reelsSize.h : Math.max(500, (useWindowDimensions().height - (isDesktop ? 160 : 120)));
+            const effectiveW = reelsSize.w > 0 ? reelsSize.w : useWindowDimensions().width;
+
+            return reels.length === 0 ? (
               <View style={styles.center}>
                 <Text style={styles.emptyText}>No reels uploaded yet.</Text>
               </View>
             ) : (
               <View 
-                style={{ flex: 1, backgroundColor: '#000' }} 
+                style={{ flex: 1, height: effectiveH, minHeight: effectiveH, backgroundColor: '#000' }} 
                 onLayout={(e) => {
-                  const { height, width } = e.nativeEvent.layout;
-                  if (height && width && (height !== reelsSize.h || width !== reelsSize.w)) {
-                    setReelsSize({ h: height, w: width });
+                  const { height: h, width: w } = e.nativeEvent.layout;
+                  if (h && w && (h !== reelsSize.h || w !== reelsSize.w)) {
+                    setReelsSize({ h, w });
                   }
                 }}
               >
-                {reelsSize.h > 0 && (
-                  <FlatList
-                    ref={reelsListRef}
-                    data={reels}
-                    keyExtractor={(r) => r.id}
-                    pagingEnabled
-                    showsVerticalScrollIndicator={false}
-                    snapToInterval={reelsSize.h}
-                    snapToAlignment="start"
-                    decelerationRate="fast"
-                    disableIntervalMomentum
-                    onViewableItemsChanged={({ viewableItems }) => {
-                      const first = viewableItems[0];
-                      if (first?.index != null) {
-                        setActiveIndex(first.index);
-                        const r = first.item;
-                        if (r) api.viewReel(r.id).catch(() => null);
-                      }
-                    }}
-                    viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
-                    onEndReachedThreshold={1.2}
-                    getItemLayout={(_, index) => ({ length: reelsSize.h, offset: reelsSize.h * index, index })}
-                    initialNumToRender={2}
-                    style={Platform.OS === 'web' ? {
-                      scrollSnapType: 'y mandatory',
-                      overflowY: 'scroll',
-                      height: reelsSize.h,
-                    } as any : {}}
-                    renderItem={({ item, index }) => (
-                      <ReelCard
-                        reel={item}
-                        isActive={index === activeIndex && isFocused && selectedTab === 'Reels'}
-                        height={reelsSize.h}
-                        width={reelsSize.w}
-                        saved={savedIds.has(item.id)}
-                        onLike={() => handleLikeReel(index)}
-                        onFollow={() => handleFollowCreator(index)}
-                        onComment={() => handleOpenComments(item)}
-                        onShare={() => showToast('Share link copied to clipboard')}
-                        onSave={() => handleSaveReel(index)}
-                        onSkip={() => handleSkipReel(index)}
-                      />
-                    )}
-                  />
-                )}
+                <FlatList
+                  ref={reelsListRef}
+                  data={reels}
+                  keyExtractor={(r) => r.id}
+                  pagingEnabled
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={effectiveH}
+                  snapToAlignment="start"
+                  decelerationRate="fast"
+                  disableIntervalMomentum
+                  onViewableItemsChanged={({ viewableItems }) => {
+                    const first = viewableItems[0];
+                    if (first?.index != null) {
+                      setActiveIndex(first.index);
+                      const r = first.item;
+                      if (r) api.viewReel(r.id).catch(() => null);
+                    }
+                  }}
+                  viewabilityConfig={{ itemVisiblePercentThreshold: 60 }}
+                  onEndReachedThreshold={1.2}
+                  getItemLayout={(_, index) => ({ length: effectiveH, offset: effectiveH * index, index })}
+                  initialNumToRender={2}
+                  style={Platform.OS === 'web' ? {
+                    scrollSnapType: 'y mandatory',
+                    overflowY: 'scroll',
+                    height: effectiveH,
+                  } as any : {}}
+                  renderItem={({ item, index }) => (
+                    <ReelCard
+                      reel={item}
+                      isActive={index === activeIndex && isFocused && selectedTab === 'Reels'}
+                      height={effectiveH}
+                      width={effectiveW}
+                      saved={savedIds.has(item.id)}
+                      onLike={() => handleLikeReel(index)}
+                      onFollow={() => handleFollowCreator(index)}
+                      onComment={() => handleOpenComments(item)}
+                      onShare={() => showToast('Share link copied to clipboard')}
+                      onSave={() => handleSaveReel(index)}
+                      onSkip={() => handleSkipReel(index)}
+                    />
+                  )}
+                />
               </View>
-            )
-          )}
+            );
+          })()}
 
           {selectedTab === 'Past Live Sessions' && (
             news.length === 0 ? (
@@ -1998,7 +2008,22 @@ export default function NewsScreen({ route }: { route?: any }) {
                   return (
                     <HoverPressable 
                       style={[styles.postTabCard, { position: 'relative' }]}
-                      onPress={() => setExpanded(expanded === item.id ? null : item.id)}
+                      onPress={() => setSelectedArticle({
+                        id: item.id,
+                        title: item.profile?.name ? `${item.profile.name}'s Post` : 'User Update',
+                        summary: item.content,
+                        body: item.content,
+                        imageUrl: item.imageUrl,
+                        publishedAt: item.createdAt,
+                        location: item.location,
+                        source: item.profile?.name || 'Community Member',
+                        needsBlur: item.needsBlur,
+                        blurReason: item.blurReason,
+                        blurRegions: item.blurRegions,
+                        likes: item.likes,
+                        comments: item.comments,
+                        isPost: true
+                      })}
                     >
                       <View style={styles.feedHeader}>
                         <View style={[styles.feedAvatarCircle, { backgroundColor: item.profile?.color || colors.primary }]}>
@@ -2056,7 +2081,7 @@ export default function NewsScreen({ route }: { route?: any }) {
                             }}
                           >
                             <Text style={{ fontSize: 14, color: item.liked ? '#EF4444' : colors.textDim }}>{item.liked ? '❤️' : '🖤'}</Text>
-                            <Text style={{ fontSize: 12, fontWeight: '700', color: item.liked ? '#EF4444' : colors.textDim }}>{item.likes} Likes</Text>
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: item.liked ? '#EF4444' : colors.textDim }}>{item.likes} <Translate text="Likes" /></Text>
                           </HoverPressable>
 
                           <HoverPressable
@@ -2067,7 +2092,7 @@ export default function NewsScreen({ route }: { route?: any }) {
                             }}
                           >
                             <Text style={{ fontSize: 14, color: savedIds.has(item.id) ? '#EAB308' : colors.textDim }}>{savedIds.has(item.id) ? '🔖' : '▫️'}</Text>
-                            <Text style={{ fontSize: 12, fontWeight: '700', color: savedIds.has(item.id) ? '#EAB308' : colors.textDim }}>{savedIds.has(item.id) ? 'Saved' : 'Save'}</Text>
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: savedIds.has(item.id) ? '#EAB308' : colors.textDim }}>{savedIds.has(item.id) ? <Translate text="Saved" /> : <Translate text="Save" />}</Text>
                           </HoverPressable>
 
                           <HoverPressable
@@ -2078,12 +2103,12 @@ export default function NewsScreen({ route }: { route?: any }) {
                             }}
                           >
                             <Text style={{ fontSize: 14, color: colors.textDim }}>↗️</Text>
-                            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textDim }}>Share</Text>
+                            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textDim }}><Translate text="Share" /></Text>
                           </HoverPressable>
                         </View>
 
                         {item.location && (
-                          <Text style={{ color: colors.accent, fontSize: 11, fontWeight: '600' }}>📍 {item.location}</Text>
+                          <Text style={{ color: colors.accent, fontSize: 11, fontWeight: '600' }}>📍 <Translate text={item.location} /></Text>
                         )}
                       </View>
                     </HoverPressable>
@@ -2096,8 +2121,8 @@ export default function NewsScreen({ route }: { route?: any }) {
           {selectedTab === 'Saved Live Recordings' && (
             savedLives.length === 0 ? (
               <View style={styles.center}>
-                <Text style={styles.emptyText}>You haven’t saved any live recordings yet.</Text>
-                <Text style={styles.emptySub}>Go to 'Past Live Sessions' and tap 'Save Recording' to save them here.</Text>
+                <Text style={styles.emptyText}><Translate text="You haven’t saved any live recordings yet." /></Text>
+                <Text style={styles.emptySub}><Translate text="Go to 'Past Live Sessions' and tap 'Save Recording' to save them here." /></Text>
               </View>
             ) : (
               <FlatList
@@ -2128,11 +2153,11 @@ export default function NewsScreen({ route }: { route?: any }) {
                         <View style={styles.articleMetaRow}>
                           <View style={styles.aiSummaryBadge}>
                             <Text style={styles.aiSummaryBadgeText}>
-                              {item.isOwnBroadcast ? '📼 MY LIVE BROADCAST' : '📼 WATCHLIST RECORDING'}
+                              {item.isOwnBroadcast ? <Translate text="📼 MY LIVE BROADCAST" /> : <Translate text="📼 WATCHLIST RECORDING" />}
                             </Text>
                           </View>
                         </View>
-                        <Text style={styles.articleTitle} numberOfLines={expanded === item.id ? undefined : 2}>{item.title}</Text>
+                        <Text style={styles.articleTitle} numberOfLines={expanded === item.id ? undefined : 2}><Translate text={item.title} /></Text>
                         
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                           {item.isOwnBroadcast ? (
@@ -2866,97 +2891,162 @@ export default function NewsScreen({ route }: { route?: any }) {
               </View>
 
               {/* Content */}
-              <View style={{ flex: 1, backgroundColor: colors.bg }}>
-                {selectedArticle.body && (selectedArticle.body.startsWith('http://') || selectedArticle.body.startsWith('https://')) ? (
-                  <View style={{ flex: 1, position: 'relative' }}>
-                    <iframe
-                      src={
-                        selectedArticle.body.includes('youtube.com') || selectedArticle.body.includes('youtu.be')
-                          ? (
-                              (() => {
-                                const url = selectedArticle.body;
-                                let videoId = '';
-                                if (url.includes('youtu.be/')) {
-                                  videoId = url.split('youtu.be/')[1]?.split('?')[0];
-                                } else if (url.includes('v=')) {
-                                  videoId = url.split('v=')[1]?.split('&')[0];
-                                } else if (url.includes('embed/')) {
-                                  videoId = url.split('embed/')[1]?.split('?')[0];
-                                } else if (url.includes('live/')) {
-                                  videoId = url.split('live/')[1]?.split('?')[0];
-                                }
-                                return `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&rel=0&modestbranding=1`;
-                              })()
-                            )
-                          : `${API_URL}/api/news-proxy?url=${encodeURIComponent(selectedArticle.body)}`
-                      }
-                      style={{ width: '100%', height: '100%', border: 'none', backgroundColor: '#fff' }}
-                      title={selectedArticle.title}
-                      allowFullScreen
-                    />
-                  </View>
-                ) : (
-                  <ScrollView contentContainerStyle={{ padding: 24, position: 'relative', minHeight: 400 }}>
-                    {selectedArticle.imageUrl && (
-                      <View style={{ position: 'relative', width: '100%', height: 260, borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
-                        <Image 
-                          source={{ uri: selectedArticle.imageUrl }} 
-                          style={{ width: '100%', height: '100%', resizeMode: 'cover' }} 
-                          blurRadius={selectedArticle.needsBlur ? 35 : 0}
-                        />
-                        <BlurRegionsOverlay regions={selectedArticle.blurRegions} />
+              <View style={{ flex: 1, height: '100%', backgroundColor: colors.bg }}>
+                <ScrollView contentContainerStyle={{ padding: 24, position: 'relative', minHeight: 400 }}>
+                  {selectedArticle.imageUrl && (
+                    <Pressable 
+                      style={{ position: 'relative', width: '100%', minHeight: 320, maxHeight: 580, borderRadius: 14, overflow: 'hidden', marginBottom: 20, backgroundColor: '#090D1A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, cursor: 'zoom-in' as any }}
+                      onPress={() => {
+                        const now = Date.now();
+                        if (now - lastTapRef.current < 350 || Platform.OS === 'web') {
+                          setImageZoomScale(2.5);
+                          setShowImageZoomModal(true);
+                        }
+                        lastTapRef.current = now;
+                      }}
+                    >
+                      <Image 
+                        source={{ uri: selectedArticle.imageUrl }} 
+                        style={{ width: '100%', height: 480, resizeMode: 'contain' }} 
+                        blurRadius={selectedArticle.needsBlur ? 35 : 0}
+                      />
+                      <View style={{ position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(15, 23, 42, 0.85)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>🔍 <Translate text="Double-Tap / Click to Zoom" /></Text>
                       </View>
-                    )}
+                      <BlurRegionsOverlay regions={selectedArticle.blurRegions} />
+                    </Pressable>
+                  )}
 
-                    {selectedArticle.needsBlur && (
-                      <View 
-                        style={styles.fullCardBlurOverlay}
-                      >
-                        <Text style={styles.blurEmoji}>⚠️</Text>
-                        <Text style={styles.blurText}>Sensitive Content</Text>
-                        <Text style={styles.blurTapText}>
-                          This content has been identified as containing adult, graphic, or unsafe material. It has been permanently blurred for safety.
-                        </Text>
-                      </View>
-                    )}
+                  {selectedArticle.needsBlur && (
+                    <View style={styles.fullCardBlurOverlay}>
+                      <Text style={styles.blurEmoji}>⚠️</Text>
+                      <Text style={styles.blurText}><Translate text="Sensitive Content" /></Text>
+                      <Text style={styles.blurTapText}>
+                        <Translate text="This content has been identified as containing sensitive material. It has been permanently blurred for safety." />
+                      </Text>
+                    </View>
+                  )}
 
-                    {!selectedArticle.needsBlur ? (
-                      <>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 6 }}>
-                          <View style={styles.aiLocationBadge}>
-                            <Text style={styles.aiLocationBadgeText}>{selectedArticle.category || 'General'}</Text>
-                          </View>
-                          {selectedArticle.location && (
-                            <View style={styles.aiLocationBadge}>
-                              <Text style={styles.aiLocationBadgeText}>📍 {selectedArticle.location}</Text>
-                            </View>
-                          )}
-                          <Text style={{ color: colors.textDim, fontSize: 12 }}>{selectedArticle.readMinutes} min read</Text>
-                          <Text style={{ color: colors.textFaint }}>·</Text>
-                          <Text style={{ color: colors.textFaint, fontSize: 12 }}>{timeAgo(selectedArticle.publishedAt || selectedArticle.createdAt)}</Text>
+                  {!selectedArticle.needsBlur ? (
+                    <>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+                        <View style={styles.aiLocationBadge}>
+                          <Text style={styles.aiLocationBadgeText}><Translate text={selectedArticle.category || 'General'} /></Text>
                         </View>
-
-                        <Text style={[styles.articleTitle, { fontSize: 24, lineHeight: 32, marginBottom: 12 }]}>{selectedArticle.title}</Text>
-                        <Text style={[styles.articleSummary, { fontSize: 15, lineHeight: 22, fontWeight: '500', marginBottom: 16, color: colors.textDim }]}>{selectedArticle.summary}</Text>
-
-                        {/* YouTube Player if the article has a YouTube link as videoUrl */}
-                        {selectedArticle.videoUrl && (selectedArticle.videoUrl.includes('youtube.com') || selectedArticle.videoUrl.includes('youtu.be')) && (
-                          <View style={{ marginBottom: 20, borderRadius: 12, overflow: 'hidden' }}>
-                            <NewsVideoPlayer uri={selectedArticle.videoUrl} />
+                        {selectedArticle.location && (
+                          <View style={styles.aiLocationBadge}>
+                            <Text style={styles.aiLocationBadgeText}>📍 <Translate text={selectedArticle.location} /></Text>
                           </View>
                         )}
+                        <Text style={{ color: colors.textDim, fontSize: 12 }}>{selectedArticle.readMinutes || 3} <Translate text="min read" /></Text>
+                        <Text style={{ color: colors.textFaint }}>·</Text>
+                        <Text style={{ color: colors.textFaint, fontSize: 12 }}>{timeAgo(selectedArticle.publishedAt || selectedArticle.createdAt)}</Text>
+                      </View>
 
-                        <Text style={{ color: colors.text, fontSize: 15, lineHeight: 24 }}>{selectedArticle.body}</Text>
-                      </>
-                    ) : (
-                      <View style={{ minHeight: 200 }} />
-                    )}
-                  </ScrollView>
-                )}
+                      <Text style={[styles.articleTitle, { fontSize: 26, lineHeight: 34, marginBottom: 14 }]}>
+                        <Translate text={selectedArticle.title} />
+                      </Text>
+
+                      {selectedArticle.summary && (
+                        <Text style={[styles.articleSummary, { fontSize: 16, lineHeight: 24, fontWeight: '500', marginBottom: 20, color: colors.textDim }]}>
+                          <Translate text={selectedArticle.summary} />
+                        </Text>
+                      )}
+
+                      {/* Video Player if available */}
+                      {selectedArticle.videoUrl && (
+                        <View style={{ marginBottom: 20, borderRadius: 12, overflow: 'hidden' }}>
+                          <NewsVideoPlayer uri={selectedArticle.videoUrl} />
+                        </View>
+                      )}
+
+                      {/* Body Content / External Link */}
+                      {selectedArticle.body && (selectedArticle.body.startsWith('http://') || selectedArticle.body.startsWith('https://')) ? (
+                        <View style={{ marginTop: 12, padding: 18, backgroundColor: colors.surfaceAlt, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 12 }}>
+                          <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>
+                            🔗 <Translate text="External Article Link" />:
+                          </Text>
+                          <Text style={{ color: colors.accent, fontSize: 13 }} numberOfLines={2}>{selectedArticle.body}</Text>
+                          <HoverPressable
+                            style={{ backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, alignSelf: 'flex-start' }}
+                            onPress={() => {
+                              Platform.OS === 'web' 
+                                ? window.open(selectedArticle.body, '_blank') 
+                                : Linking.openURL(selectedArticle.body);
+                            }}
+                          >
+                            <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>↗ <Translate text="Open Original Webpage" /></Text>
+                          </HoverPressable>
+                        </View>
+                      ) : (
+                        <Text style={{ color: colors.text, fontSize: 16, lineHeight: 26 }}>
+                          <Translate text={selectedArticle.body || selectedArticle.summary || ''} />
+                        </Text>
+                      )}
+                    </>
+                  ) : (
+                    <View style={{ minHeight: 200 }} />
+                  )}
+                </ScrollView>
               </View>
             </>
           )}
         </View>
+      </View>
+    </Modal>
+
+    {/* INTERACTIVE FULLSCREEN IMAGE ZOOM LIGHTBOX */}
+    <Modal
+      visible={showImageZoomModal}
+      animationType="fade"
+      transparent={true}
+      onRequestClose={() => setShowImageZoomModal(false)}
+    >
+      <View style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.95)', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+        {/* Floating Controls Bar */}
+        <View style={{ position: 'absolute', top: 20, zIndex: 100, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(15, 23, 42, 0.85)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)' }}>
+          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800', marginRight: 6 }}>🔍 <Translate text="Magnifier:" /></Text>
+          <Pressable onPress={() => setImageZoomScale(1)} style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: imageZoomScale === 1 ? colors.primary : 'rgba(255,255,255,0.1)' }}>
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>1.0x</Text>
+          </Pressable>
+          <Pressable onPress={() => setImageZoomScale(1.8)} style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: imageZoomScale === 1.8 ? colors.primary : 'rgba(255,255,255,0.1)' }}>
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>1.8x</Text>
+          </Pressable>
+          <Pressable onPress={() => setImageZoomScale(2.5)} style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: imageZoomScale === 2.5 ? colors.primary : 'rgba(255,255,255,0.1)' }}>
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>2.5x</Text>
+          </Pressable>
+          <Pressable onPress={() => setImageZoomScale(3.5)} style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: imageZoomScale === 3.5 ? colors.primary : 'rgba(255,255,255,0.1)' }}>
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>3.5x</Text>
+          </Pressable>
+          <Pressable onPress={() => setShowImageZoomModal(false)} style={{ paddingHorizontal: 12, paddingVertical: 4, borderRadius: 6, backgroundColor: '#EF4444', marginLeft: 10 }}>
+            <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>✕ <Translate text="Close" /></Text>
+          </Pressable>
+        </View>
+
+        {/* Scrollable & Zoomable Image Area */}
+        <ScrollView
+          maximumZoomScale={4.0}
+          minimumZoomScale={1.0}
+          zoomScale={imageZoomScale}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', minWidth: '100%', minHeight: '100%', paddingVertical: 60 }}
+          showsHorizontalScrollIndicator={true}
+          showsVerticalScrollIndicator={true}
+        >
+          <Pressable
+            onPress={() => {
+              // Double-click toggle between 1x and 2.5x
+              setImageZoomScale(prev => (prev > 1 ? 1 : 2.5));
+            }}
+          >
+            <Image
+              source={{ uri: selectedArticle?.imageUrl }}
+              style={[
+                { width: Platform.OS === 'web' ? 1000 : 380, height: Platform.OS === 'web' ? 1400 : 650, resizeMode: 'contain' },
+                Platform.OS === 'web' && { transform: [{ scale: imageZoomScale }], transformOrigin: 'center center', transition: 'transform 0.2s ease-out', cursor: 'grab' } as any
+              ]}
+            />
+          </Pressable>
+        </ScrollView>
       </View>
     </Modal>
 
@@ -3801,11 +3891,12 @@ const getStyles = (colors: any, insets: any, width: number) => {
     backgroundColor: 'rgba(0, 0, 0, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: Platform.OS === 'web' ? 40 : 16,
+    padding: Platform.OS === 'web' ? 20 : 10,
   },
   articleModalContainer: {
     width: '100%',
-    maxHeight: '100%',
+    height: Platform.OS === 'web' ? '92vh' : '92%',
+    maxHeight: '92%',
     backgroundColor: colors.bg,
     borderRadius: 16,
     overflow: 'hidden',

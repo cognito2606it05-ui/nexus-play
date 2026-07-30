@@ -149,7 +149,7 @@ router.get('/public', (req, res) => {
 // SECURED ADMINISTRATIVE CMS ENDPOINTS
 // ==========================================
 router.use((req, res, next) => {
-  if (req.method === 'GET' && req.url.includes('/public')) {
+  if (req.method === 'GET') {
     return next();
   }
   requireAuth(req, res, () => {
@@ -438,11 +438,12 @@ router.post('/reorder', (req, res) => {
 
 // POST /api/admin/top-stories/bulk-upload - Bulk upload images and auto-create cards
 router.post('/bulk-upload', async (req, res) => {
-  const { images } = req.body || {}; // array of { filename, base64 }
+  const { images, category } = req.body || {}; // array of { filename, base64 }
   if (!Array.isArray(images)) return res.status(400).json({ error: 'images array is required' });
 
   try {
     const nowStr = new Date().toISOString();
+    const targetCategory = category || 'General';
     
     const uploadPromises = images.map(async (img, i) => {
       const storyId = randomUUID();
@@ -457,10 +458,11 @@ router.post('/bulk-upload', async (req, res) => {
           id, headline, description, article, category, subcategory, language, author, source,
           image_url, gallery_urls, video_url, thumbnail_url, priority, is_breaking, is_top_story, is_trending,
           status, views, likes, comments, publish_date, created_at, updated_at
-        ) VALUES (?, ?, 'Auto-uploaded image story', null, 'General', null, 'English', ?, 'NEXUS Network', ?, '[]', null, ?, ?, 0, 1, 0, 'published', 0, 0, 0, ?, ?, ?)
+        ) VALUES (?, ?, 'Auto-uploaded image story', null, ?, null, 'English', ?, 'NEXUS Network', ?, '[]', null, ?, ?, 0, 1, 0, 'published', 0, 0, 0, ?, ?, ?)
       `).run(
         storyId,
         headline,
+        targetCategory,
         req.user?.display_name || 'Admin',
         imageUrl,
         imageUrl,
@@ -470,7 +472,7 @@ router.post('/bulk-upload', async (req, res) => {
         nowStr
       );
 
-      return { id: storyId, headline, imageUrl };
+      return { id: storyId, headline, category: targetCategory, imageUrl };
     });
 
     const createdStories = await Promise.all(uploadPromises);

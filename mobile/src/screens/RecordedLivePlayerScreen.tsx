@@ -277,8 +277,21 @@ export default function RecordedLivePlayerScreen({ route, navigation }: any) {
   }
 
   // Format playback source URL safely
-  let playbackSource = streamDetails.videoUrl || streamDetails.recorded_video_url;
-  if (playbackSource && !playbackSource.startsWith('http')) {
+  let rawSource = streamDetails.videoUrl || streamDetails.recorded_video_url;
+  let playbackSource = rawSource;
+  if (rawSource && typeof rawSource === 'string' && rawSource.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(rawSource);
+      if (Array.isArray(parsed) && parsed.length > 1) {
+        playbackSource = parsed[1]; // Extract individual stream recording URL from playlist array
+      } else if (Array.isArray(parsed) && parsed.length > 0) {
+        playbackSource = parsed[0];
+      }
+    } catch (e) {}
+  }
+  if (!playbackSource || playbackSource === 'null' || playbackSource === 'undefined') {
+    playbackSource = `${API_URL}/media/uploads/intro.mp4`;
+  } else if (playbackSource && !playbackSource.startsWith('http') && !playbackSource.startsWith('blob:') && !playbackSource.startsWith('data:')) {
     playbackSource = `${API_URL}/media/uploads/${playbackSource.split('/').pop()}`;
   }
 

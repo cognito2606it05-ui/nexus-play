@@ -527,15 +527,16 @@ export default function ReporterBroadcastScreen({ navigation }: any) {
     }
     
     // Stop recording and close media recorder
-    const chunks = (window as any).__reporterChunks || [];
     if (mediaRecorderRef.current) {
       try {
         mediaRecorderRef.current.stop();
+        await new Promise((r) => setTimeout(r, 300));
       } catch (e) {
         console.error('Failed to stop MediaRecorder safely:', e);
       }
       mediaRecorderRef.current = null;
     }
+    const chunks = (window as any).__reporterChunks || [];
 
     // Stop relay and disconnect socket
     if (socketRef.current) {

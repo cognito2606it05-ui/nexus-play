@@ -18,6 +18,7 @@ const linking = {
       ReporterBroadcast: 'reporter-station',
       StudioDashboard: 'reporter/dashboard',
       RecordedLivePlayer: 'video/:streamId',
+      SuperAdminDashboard: 'admin',
     }
   }
 };

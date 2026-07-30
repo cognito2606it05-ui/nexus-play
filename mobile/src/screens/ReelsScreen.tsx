@@ -535,31 +535,34 @@ export default function ReelsScreen() {
           <Text style={styles.errMsg}>{error}</Text>
           <Text style={styles.errHint}>Is the API running?</Text>
         </View>
-      ) : size.h > 0 ? (
-        <FlatList
-          ref={flatListRef}
-          data={reels}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          pagingEnabled
-          showsVerticalScrollIndicator={false}
-          snapToInterval={size.h}
-          snapToAlignment="start"
-          decelerationRate="fast"
-          disableIntervalMomentum
-          onViewableItemsChanged={onViewable}
-          viewabilityConfig={viewConfig}
-          onEndReached={() => load(false)}
-          onEndReachedThreshold={1.2}
-          getItemLayout={(_, index) => ({ length: size.h, offset: size.h * index, index })}
-          initialNumToRender={3}
-          maxToRenderPerBatch={5}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS !== 'web'}
-          style={webFlatListStyles}
-          CellRendererComponent={CellRenderer}
-        />
-      ) : null}
+      ) : (() => {
+        const effH = size.h > 0 ? size.h : Math.max(500, useWindowDimensions().height - (isDesktop ? 138 : 60));
+        return (
+          <FlatList
+            ref={flatListRef}
+            data={reels}
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            pagingEnabled
+            showsVerticalScrollIndicator={false}
+            snapToInterval={effH}
+            snapToAlignment="start"
+            decelerationRate="fast"
+            disableIntervalMomentum
+            onViewableItemsChanged={onViewable}
+            viewabilityConfig={viewConfig}
+            onEndReached={() => load(false)}
+            onEndReachedThreshold={1.2}
+            getItemLayout={(_, index) => ({ length: effH, offset: effH * index, index })}
+            initialNumToRender={3}
+            maxToRenderPerBatch={5}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS !== 'web'}
+            style={Platform.OS === 'web' ? { ...webFlatListStyles, height: effH } : {}}
+            CellRendererComponent={CellRenderer}
+          />
+        );
+      })()}
 
       {/* Upload Modal */}
       <Modal

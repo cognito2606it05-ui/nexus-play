@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Image, Pressable, Platform, Animated, useWindowDimensions, TextInput, Switch, ScrollView } from 'react-native';
 import { useAuth } from '../state/AuthContext';
 import { useTheme } from '../state/ThemeContext';
-import { useLanguage } from '../state/LanguageContext';
+import { useLanguage, Translate } from '../state/LanguageContext';
 import { api } from '../api/client';
 import { HoverPressable } from './HoverPressable';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -283,6 +283,10 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
   const handleSearchSubmit = () => {
     saveSearchQuery(searchVal);
     setSearchFocused(false);
+    onSearch?.(searchVal);
+    if (currentRouteName !== 'News' && currentRouteName !== 'Home') {
+      navigation.navigate('News', { searchQuery: searchVal });
+    }
   };
 
   const selectSearchItem = (query: string) => {
@@ -290,6 +294,9 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
     onSearch?.(query);
     saveSearchQuery(query);
     setSearchFocused(false);
+    if (currentRouteName !== 'News' && currentRouteName !== 'Home') {
+      navigation.navigate('News', { searchQuery: query });
+    }
   };
 
   const clearRecentSearch = (query: string) => {
@@ -480,7 +487,7 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
                       onPress={() => navigation.navigate(tab.name)}
                     >
                       <Text style={[styles.navTabText, { color: activeColor }]}>
-                        {tab.label}
+                        {t(tab.label)}
                       </Text>
                       {isFocused && (
                         <View style={[styles.navTabActiveLine, { backgroundColor: colors.primary }]} />
@@ -578,6 +585,14 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
               </Pressable>
             </Animated.View>
 
+            {/* Admin Portal Direct Trigger */}
+            <Pressable 
+              onPress={() => navigation.navigate('SuperAdminDashboard')}
+              style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, backgroundColor: '#3B82F6', flexDirection: 'row', alignItems: 'center', gap: 4 }}
+            >
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>👑 Admin</Text>
+            </Pressable>
+
             {/* Language Translator */}
             <HoverPressable 
               style={[styles.iconCircleBtn, { borderColor: isDark ? '#334155' : '#E2E8F0' }]}
@@ -652,19 +667,19 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
 
             <View style={styles.weatherStatsGrid}>
               <View style={styles.weatherStatCol}>
-                <Text style={styles.weatherStatLabel}>Feels Like</Text>
+                <Text style={styles.weatherStatLabel}><Translate text="Feels Like" /></Text>
                 <Text style={[styles.weatherStatVal, { color: isDark ? '#fff' : '#000' }]}>{weatherInfo.feelsLike}°C</Text>
               </View>
               <View style={styles.weatherStatCol}>
-                <Text style={styles.weatherStatLabel}>Humidity</Text>
+                <Text style={styles.weatherStatLabel}><Translate text="Humidity" /></Text>
                 <Text style={[styles.weatherStatVal, { color: isDark ? '#fff' : '#000' }]}>{weatherInfo.humidity}%</Text>
               </View>
               <View style={styles.weatherStatCol}>
-                <Text style={styles.weatherStatLabel}>Wind Speed</Text>
+                <Text style={styles.weatherStatLabel}><Translate text="Wind Speed" /></Text>
                 <Text style={[styles.weatherStatVal, { color: isDark ? '#fff' : '#000' }]}>{weatherInfo.windSpeed} km/h</Text>
               </View>
               <View style={styles.weatherStatCol}>
-                <Text style={styles.weatherStatLabel}>Pressure</Text>
+                <Text style={styles.weatherStatLabel}><Translate text="Pressure" /></Text>
                 <Text style={[styles.weatherStatVal, { color: isDark ? '#fff' : '#000' }]}>{weatherInfo.pressure} hPa</Text>
               </View>
             </View>
@@ -672,14 +687,16 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
             <View style={[styles.weatherDivider, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]} />
 
             <View style={styles.weatherSunRow}>
-              <Text style={[styles.weatherSunLabel, { color: isDark ? '#94A3B8' : '#475569' }]}>🌅 Sunrise: {weatherInfo.sunrise}</Text>
-              <Text style={[styles.weatherSunLabel, { color: isDark ? '#94A3B8' : '#475569' }]}>🌇 Sunset: {weatherInfo.sunset}</Text>
+              <Text style={[styles.weatherSunLabel, { color: isDark ? '#94A3B8' : '#475569' }]}>🌅 <Translate text="Sunrise" />: {weatherInfo.sunrise}</Text>
+              <Text style={[styles.weatherSunLabel, { color: isDark ? '#94A3B8' : '#475569' }]}>🌇 <Translate text="Sunset" />: {weatherInfo.sunset}</Text>
             </View>
 
             <View style={[styles.weatherDivider, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]} />
 
             {/* Hourly Forecast */}
-            <Text style={[styles.weatherSectionTitle, { color: isDark ? '#94A3B8' : '#475569' }]}>Hourly Forecast</Text>
+            <Text style={[styles.weatherSectionTitle, { color: isDark ? '#94A3B8' : '#475569' }]}>
+              <Translate text="Hourly Forecast" />
+            </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.weatherHourlyContainer}>
               {weatherInfo.hourly.map((h, i) => (
                 <View key={i} style={styles.weatherHourlyItem}>
@@ -693,11 +710,13 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
             <View style={[styles.weatherDivider, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]} />
 
             {/* 7-Day Forecast */}
-            <Text style={[styles.weatherSectionTitle, { color: isDark ? '#94A3B8' : '#475569' }]}>7-Day Forecast</Text>
+            <Text style={[styles.weatherSectionTitle, { color: isDark ? '#94A3B8' : '#475569' }]}>
+              <Translate text="7-Day Forecast" />
+            </Text>
             <View style={styles.weatherDailyContainer}>
               {weatherInfo.daily.map((d, i) => (
                 <View key={i} style={styles.weatherDailyRow}>
-                  <Text style={[styles.weatherDailyDay, { color: isDark ? '#E2E8F0' : '#334155' }]}>{d.day}</Text>
+                  <Text style={[styles.weatherDailyDay, { color: isDark ? '#E2E8F0' : '#334155' }]}><Translate text={d.day} /></Text>
                   <Text style={styles.weatherDailyIcon}>{d.icon}</Text>
                   <Text style={[styles.weatherDailyTemp, { color: isDark ? '#94A3B8' : '#475569' }]}>{d.max}°C / {d.min}°C</Text>
                 </View>
@@ -857,7 +876,7 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
                   }}
                 >
                   <Text style={[styles.mobileMenuLinkText, { color: isDark ? '#E2E8F0' : '#334155' }]}>
-                    {tab.label}
+                    {t(tab.label)}
                   </Text>
                 </Pressable>
               ))}

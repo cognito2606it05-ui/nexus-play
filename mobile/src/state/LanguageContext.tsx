@@ -22,6 +22,15 @@ const TRANSLATION_MAP: Record<string, Record<'te' | 'hi', string>> = {
   "Live TV": { te: "లైవ్ టీవీ", hi: "लाइव टीवी" },
   "Live": { te: "ప్రత్యక్ష ప్రసారం", hi: "लाइव" },
   "Profile": { te: "ప్రొఫైల్", hi: "प्रोफ़ाइल" },
+  "HOME": { te: "హోమ్", hi: "होम" },
+  "REELS": { te: "రీల్స్", hi: "रील्स" },
+  "NEWS": { te: "వార్తలు", hi: "समाचार" },
+  "LIVE TV": { te: "లైవ్ టీవీ", hi: "लाइव टीवी" },
+  "PROFILE": { te: "ప్రొఫైల్", hi: "प्रोफ़ाइल" },
+  "STUDIO": { te: "స్టూడియో", hi: "स्टूडियो" },
+  "ADMIN": { te: "అడ్మిన్", hi: "एडमिन" },
+  "SUPER ADMIN": { te: "సూపర్ అడ్మిన్", hi: "सुपर एडमिन" },
+  "LOGOUT": { te: "లాగౌట్", hi: "लॉगआउट" },
 
   // Header Elements
   "Search news, creators, posts...": { te: "వార్తలు, సృష్టికర్తలు, పోస్ట్‌లను శోధించండి...", hi: "समाचार, निर्माता, पोस्ट खोजें..." },
@@ -29,6 +38,31 @@ const TRANSLATION_MAP: Record<string, Record<'te' | 'hi', string>> = {
   "Delhi": { te: "ఢిల్లీ", hi: "दिल्ली" },
   "No new direct messages.": { te: "కొత్త సందేశాలు లేవు.", hi: "कोई नया सीधा संदेश नहीं।" },
   "All systems operational! No new notifications.": { te: "అన్ని సిస్టమ్‌లు పనిచేస్తున్నాయి! కొత్త నోటిఫికేషన్‌లు లేవు.", hi: "सभी प्रणालियाँ चालू हैं! कोई नया नोटिफिकेशन नहीं।" },
+  "Search News, Videos...": { te: "వార్తలు, వీడియోలను శోధించండి...", hi: "समाचार, वीडियो खोजें..." },
+  "Search News, Creators, Live TV...": { te: "వార్తలు, లైవ్ టీవీలను శోధించండి...", hi: "समाचार, लाइव टीवी खोजें..." },
+  "Search": { te: "శోధించండి", hi: "खोजें" },
+  "Select Language": { te: "భాషను ఎంచుకోండి", hi: "भाषा चुनें" },
+  "NEXUS APPS": { te: "నెక్సస్ యాప్‌లు", hi: "नेक्सस ऐप्स" },
+  "NEXUS News": { te: "నెక్సస్ వార్తలు", hi: "नेक्सस समाचार" },
+  "NEXUS Cinema": { te: "నెక్సస్ సినిమా", hi: "नेक्सस सिनेमा" },
+  "NEXUS Music": { te: "నెక్సస్ సంగీతం", hi: "नेक्सस संगीत" },
+  "NEXUS Sports": { te: "నెక్సస్ క్రీడలు", hi: "नेक्सस खेल" },
+  "Recent Searches": { te: "ఇటీవలి శోధనలు", hi: "हाल की खोजें" },
+  "Trending Searches": { te: "ట్రెండింగ్ శోధనలు", hi: "ट्रेंडिंग खोजें" },
+  "Ask Nexus AI Assistant": { te: "నెక్సస్ AI అసిస్టెంట్‌ని అడగండి", hi: "नेक्सस एआई सहायक से पूछें" },
+  "Forecast": { te: "వాతావరణ అంచనా", hi: "पूर्वाभास" },
+  "Feels Like": { te: "అనిపిస్తోంది", hi: "महसूस हो रहा है" },
+  "Humidity": { te: "తేమ", hi: "आर्द्रता" },
+  "Wind Speed": { te: "గాలి వేగం", hi: "हवा की गति" },
+  "Pressure": { te: "పీడనం", hi: "दबाव" },
+  "Sunrise": { te: "సూర్యోదయం", hi: "सूर्योदय" },
+  "Sunset": { te: "సూర్యాస్తమయం", hi: "सूर्यास्त" },
+  "Hourly Forecast": { te: "గంటవారీ అంచనా", hi: "प्रति घंटा पूर्वानुमान" },
+  "7-Day Forecast": { te: "7-రోజుల అంచనా", hi: "7-दिवसीय पूर्वानुमान" },
+  "Saved News": { te: "భద్రపరిచిన వార్తలు", hi: "सहेजे गए समाचार" },
+  "Watch Later": { te: "తర్వాత చూడండి", hi: "बाद में देखें" },
+  "History": { te: "చరిత్ర", hi: "इतिहास" },
+  "Settings": { te: "సెట్టింగ్‌లు", hi: "सेटिंग्स" },
 
   // Profile Dropdown
   "Followers": { te: "అనుసరించేవాళ్ళు", hi: "फॉलोअर्स" },
@@ -53,6 +87,24 @@ const TRANSLATION_MAP: Record<string, Record<'te' | 'hi', string>> = {
   "Education": { te: "విద్య", hi: "शिक्षा" },
   "Health": { te: "ఆరోగ్యం", hi: "स्वास्थ्य" },
   "World": { te: "ప్రపంచం", hi: "विश्व" },
+  "Devotional": { te: "భక్తి", hi: "भक्ति" },
+  "International": { te: "అంతర్జాతీయం", hi: "अंतर्राष्ट्रीय" },
+  "Fact Check": { te: "నిజ నిర్ధారణ", hi: "फ़ैक्ट चेक" },
+  "Opinion": { te: "అభిప్రాయం", hi: "राय" },
+  "Temple News": { te: "దేవాలయ వార్తలు", hi: "मंदिर समाचार" },
+  "Bhagavad Gita": { te: "భగవద్గీత", hi: "भगवद गीता" },
+  "Festivals": { te: "పండుగలు", hi: "त्यौहार" },
+  "Meditation": { te: "ధ్యానం", hi: "ध्यान" },
+  "AP News": { te: "ఆంధ్రప్రదేశ్ వార్తలు", hi: "आंध्र प्रदेश समाचार" },
+  "Telangana News": { te: "తెలంగాణ వార్తలు", hi: "तेलंगाना समाचार" },
+  "Delhi / National": { te: "ఢిల్లీ / జాతీయ వార్తలు", hi: "दिल्ली / राष्ट्रीय समाचार" },
+  "Trending News": { te: "ట్రెండింగ్ వార్తలు", hi: "ट्रेंडिंग समाचार" },
+  "World News": { te: "అంతర్జాతీయ వార్తలు", hi: "विश्व समाचार" },
+  "Editor's Picks": { te: "ఎడిటర్స్ ఛాయిస్", hi: "संपादक की पसंद" },
+  "Most Viewed": { te: "అత్యధికులు చూసినవి", hi: "सर्वाधिक देखे गए" },
+  "Latest Updates": { te: "తాజా అప్‌డేట్‌లు", hi: "नवीनतम अपडेट" },
+  "Breaking News Feed": { te: "బ్రేకింగ్ న్యూస్ ఫీడ్", hi: "ब्रेकिंग न्यूज फीड" },
+  "Trending on NEXUS": { te: "నెక్సస్‌లో ట్రెండింగ్", hi: "नेक्सस पर ट्रेंडिंग" },
   "More": { te: "మరింత", hi: "अधिक" },
   "+ More": { te: "మరింత", hi: "अधिक" },
 
@@ -120,6 +172,34 @@ const TRANSLATION_MAP: Record<string, Record<'te' | 'hi', string>> = {
   "Telangana": { te: "తెలంగాణ", hi: "तेलंगाना" },
   "Delhi/North": { te: "ఢిల్లీ/ఉత్తరం", hi: "दिल्ली/उत्तर" },
   "All": { te: "అన్నీ", hi: "सभी" },
+  "Super Admin Dashboard": { te: "సూపర్ అడ్మిన్ డాష్‌బోర్డ్", hi: "सुपर एडमिन डैशबोर्ड" },
+  "System Administration Control": { te: "సిస్టమ్ అడ్మినిస్ట్రేషన్ కంట్రోల్", hi: "सिस्टम प्रशासन नियंत्रण" },
+  "Dashboard": { te: "డాష్‌బోర్డ్", hi: "डैशबोर्ड" },
+  "Top Stories CMS": { te: "టాప్ స్టోరీస్ CMS", hi: "टॉप स्टोरीज सीएमएस" },
+  "News Stories": { te: "వార్తా కథనాలు", hi: "समाचार कहानियां" },
+  "Bulk Data Replace": { te: "బల్క్ డేటా రీప్లేస్", hi: "थोक डेटा प्रतिस्थापन" },
+  "Live TV Channels": { te: "లైవ్ టీవీ ఛానెళ్లు", hi: "लाइव टीवी चैनल" },
+  "Reporter Station": { te: "రిపోర్టర్ స్టేషన్", hi: "रिपोर्टर स्टेशन" },
+  "User Directory": { te: "యూజర్ డైరెక్టరీ", hi: "उपयोगकर्ता निर्देशिका" },
+  "Ads Campaigns": { te: "ప్రకటనల ప్రచారాలు", hi: "विज्ञापन अभियान" },
+  "Push Notifications": { te: "పుష్ నోటిఫికేషన్లు", hi: "पुश सूचनाएं" },
+  "Media Library": { te: "మీడియా లైబ్రరీ", hi: "मीडिया लाइब्रेरी" },
+  "Database Manager": { te: "డేటాబేస్ మేనేజర్", hi: "डेटाबेस प्रबंधक" },
+  "Backup & Restore": { te: "బ్యాకప్ & రీస్టోర్", hi: "बैकअप और पुनर्स्थापना" },
+  "System Audit Logs": { te: "సిస్టమ్ ఆడిట్ లాగ్‌లు", hi: "सिस्टम ऑडिट लॉग" },
+  "Exit Portal": { te: "పోర్టల్ నుండి నిష్క్రమించు", hi: "पोर्टल से बाहर निकलें" },
+  "Login": { te: "లాగిన్", hi: "लॉगिन" },
+  "Register": { te: "రిజిస్టర్", hi: "पंजीकरण करें" },
+  "Sign In": { te: "సైన్ ఇన్ చేయండి", hi: "साइन इन करें" },
+  "Sign Up": { te: "సైన్ అప్ చేయండి", hi: "साइन अप करें" },
+  "Email Address": { te: "ఇమెయిల్ చిరునామా", hi: "ईमेल पता" },
+  "Password": { te: "పాస్‌వర్డ్", hi: "पासवर्ड" },
+  "Phone Number": { te: "ఫోన్ నంబర్", hi: "फोन नंबर" },
+  "Send OTP": { te: "OTP పంపండి", hi: "ओटीपी भेजें" },
+  "Verify OTP": { te: "OTP సరిచూడండి", hi: "ओटीपी सत्यापित करें" },
+  "Forgot Password?": { te: "పాస్‌వర్డ్ మర్చిపోయారా?", hi: "पासवर्ड भूल गए?" },
+  "Don't have an account?": { te: "ఖాతా లేదా?", hi: "खाता नहीं है?" },
+  "Already have an account?": { te: "ఇప్పటికే ఖాతా ఉందా?", hi: "पहले से ही एक खाता है?" },
 };
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
@@ -324,33 +404,29 @@ export function useLanguage() {
   return context;
 }
 
-// React component helper for inline UI text translation
+// React component helper for inline UI text & dynamic content translation
 export function Translate({ text }: { text: string }) {
   const { language, t, translateDynamic, cacheLoaded } = useLanguage();
-  const [translatedText, setTranslatedText] = useState(t(text));
+  const staticVal = t(text);
+  const [asyncVal, setAsyncVal] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!cacheLoaded) return;
-
-    const staticVal = t(text);
-    console.log(`[Translate Component] text="${text}" language=${language} staticVal="${staticVal}"`);
-    if (staticVal !== text || language === 'en') {
-      setTranslatedText(staticVal);
-      return;
-    }
+    setAsyncVal(null);
+    if (!cacheLoaded || language === 'en' || staticVal !== text) return;
 
     let active = true;
     translateDynamic(text).then((res) => {
       if (active) {
-        console.log(`[Translate Component] Received async translation for "${text}" -> "${res}"`);
-        setTranslatedText(res);
+        setAsyncVal(res);
       }
     });
 
     return () => {
       active = false;
     };
-  }, [text, language, cacheLoaded]);
+  }, [text, language, cacheLoaded, staticVal]);
 
-  return <>{translatedText}</>;
+  if (!text) return null;
+  const displayVal = language === 'en' ? text : (staticVal !== text ? staticVal : (asyncVal || text));
+  return <>{displayVal}</>;
 }

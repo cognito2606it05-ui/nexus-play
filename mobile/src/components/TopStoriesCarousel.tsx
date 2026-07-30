@@ -176,7 +176,7 @@ function WebMarquee({ data, cardWidth, gap, colors, isDark, navigation, onPressS
     const clickDeltaX = e.clientX - clickStartX.current;
     const clickDeltaY = e.clientY - clickStartY.current;
 
-    if (Math.hypot(clickDeltaX, clickDeltaY) > 5) {
+    if (Math.hypot(clickDeltaX, clickDeltaY) > 15) {
       hasDragged.current = true;
     }
 
@@ -203,7 +203,7 @@ function WebMarquee({ data, cardWidth, gap, colors, isDark, navigation, onPressS
     if (hasDragged.current) {
       setTimeout(() => {
         hasDragged.current = false;
-      }, 50);
+      }, 100);
     }
 
     isResettingAfterDrag.current = true;
@@ -236,7 +236,7 @@ function WebMarquee({ data, cardWidth, gap, colors, isDark, navigation, onPressS
     const clickDeltaX = touch.clientX - clickStartX.current;
     const clickDeltaY = touch.clientY - clickStartY.current;
 
-    if (Math.hypot(clickDeltaX, clickDeltaY) > 5) {
+    if (Math.hypot(clickDeltaX, clickDeltaY) > 15) {
       hasDragged.current = true;
     }
 
@@ -262,7 +262,7 @@ function WebMarquee({ data, cardWidth, gap, colors, isDark, navigation, onPressS
     if (hasDragged.current) {
       setTimeout(() => {
         hasDragged.current = false;
-      }, 50);
+      }, 100);
     }
 
     isResettingAfterDrag.current = true;

@@ -21,14 +21,89 @@ import { API_URL } from '../config';
 import { io } from 'socket.io-client';
 import * as DocumentPicker from 'expo-document-picker';
 import TopStoriesAdminScreen from './TopStoriesAdminScreen';
+import { Translate } from '../state/LanguageContext';
+
+const DEVOTIONAL_SUBCATEGORIES = [
+  'Temple News', 'Spiritual News', 'Hindu Dharma', 'Festivals', 'Pooja & Rituals',
+  'Pilgrimage', 'Devotional Songs', 'Bhajans', 'Slokas', 'Vedas & Upanishads',
+  'Bhagavad Gita', 'Ramayana', 'Mahabharata', 'Puranas', 'Saints & Gurus',
+  'Astrology', 'Panchangam', 'Daily Horoscope', 'Meditation', 'Yoga',
+  'Quotes & Teachings', 'Religious Events', 'Temple Festivals', 'Charity & Seva',
+  'Spiritual Discourses', 'Devotional'
+];
+
+const timeAgo = (dateStr?: string) => {
+  if (!dateStr) return 'just now';
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+};
 
 export default function SuperAdminDashboardScreen({ navigation }: any) {
   const { colors, isDark } = useTheme();
-  const { user } = useAuth();
+  const { user, activeProfile } = useAuth();
 
   // Sidebar navigation state
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'topStories' | 'news' | 'channels' | 'reporters' | 'users' | 'ads' | 'notifications' | 'media' | 'database' | 'backups' | 'logs'>('dashboard');
+  const [activeTab, setActiveTab] = useState<
+    | 'dashboard'
+    | 'home'
+    | 'topStories'
+    | 'breakingNews'
+    | 'trendingNews'
+    | 'news'
+    | 'reels'
+    | 'channels'
+    | 'userStreams'
+    | 'entertainment'
+    | 'sports'
+    | 'politics'
+    | 'business'
+    | 'technology'
+    | 'education'
+    | 'health'
+    | 'world'
+    | 'devotional'
+    | 'weather'
+    | 'categories'
+    | 'media'
+    | 'ads'
+    | 'users'
+    | 'reporters'
+    | 'notifications'
+    | 'analytics'
+    | 'seo'
+    | 'comments'
+    | 'logs'
+    | 'rolesPermissions'
+    | 'bulkUpload'
+    | 'database'
+    | 'backups'
+    | 'settings'
+    | 'liveRecordings'
+  >('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showProfileDrawer, setShowProfileDrawer] = useState(false);
+  const [playingRecording, setPlayingRecording] = useState<any | null>(null);
+
+  // Global Upload Modal States
+  const [showGlobalUploadModal, setShowGlobalUploadModal] = useState(false);
+  const [globalUploadType, setGlobalUploadType] = useState<'news' | 'top_story' | 'breaking' | 'reel' | 'video' | 'gallery' | 'live_tv_thumb'>('news');
+  const [globalUploadCategory, setGlobalUploadCategory] = useState<string>('General');
+  const [globalUploadLanguage, setGlobalUploadLanguage] = useState<string>('English');
+  const [globalUploadReporter, setGlobalUploadReporter] = useState<string>('NEXUS Admin');
+  const [globalUploadTitle, setGlobalUploadTitle] = useState('');
+  const [globalUploadSummary, setGlobalUploadSummary] = useState('');
+  const [globalUploadBody, setGlobalUploadBody] = useState('');
+  const [globalUploadRegion, setGlobalUploadRegion] = useState('AP');
+  const [globalUploadDistrict, setGlobalUploadDistrict] = useState('All Districts');
+  const [globalUploadMediaUrl, setGlobalUploadMediaUrl] = useState('');
+  const [globalUploadThumbnailUrl, setGlobalUploadThumbnailUrl] = useState('');
+  const [globalUploadVideoUrl, setGlobalUploadVideoUrl] = useState('');
+  const [globalUploadFileName, setGlobalUploadFileName] = useState('');
+  const [globalUploadProgress, setGlobalUploadProgress] = useState(0);
+  const [globalUploading, setGlobalUploading] = useState(false);
 
   // Common loading / data states
   const [loading, setLoading] = useState(false);
@@ -47,6 +122,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const [backupsList, setBackupsList] = useState<any[]>([]);
   const [auditLogsList, setAuditLogsList] = useState<any[]>([]);
   const [mediaFiles, setMediaFiles] = useState<any[]>([]);
+  const [liveRecordingsList, setLiveRecordingsList] = useState<any[]>([]);
 
   // Analytics KPIs
   const [kpis, setKpis] = useState({
@@ -75,6 +151,8 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const [newsSummary, setNewsSummary] = useState('');
   const [newsBody, setNewsBody] = useState('');
   const [newsCategory, setNewsCategory] = useState('General');
+  const [newsRegion, setNewsRegion] = useState('AP');
+  const [newsDistrict, setNewsDistrict] = useState('All Districts');
   const [newsSource, setNewsSource] = useState('NEXUS Network');
   const [newsImageUrl, setNewsImageUrl] = useState('');
   const [newsVideoUrl, setNewsVideoUrl] = useState('');
@@ -110,6 +188,10 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const [notifyTitle, setNotifyTitle] = useState('');
   const [notifyBody, setNotifyBody] = useState('');
   const [notifyUserTarget, setNotifyUserTarget] = useState('');
+
+  // Live Stream & Video Replay Player States
+  const [showVideoPlayerModal, setShowVideoPlayerModal] = useState(false);
+  const [streamFilter, setStreamFilter] = useState<'all' | 'live' | 'recorded' | 'channels' | 'news'>('all');
 
   // Reporter Permissions States
   const [selectedReporter, setSelectedReporter] = useState<any | null>(null);
@@ -174,7 +256,10 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
             memUsage: '26%',
           });
         }
-      } else if (activeTab === 'news') {
+      } else if (
+        activeTab === 'news' ||
+        ['entertainment', 'sports', 'politics', 'business', 'technology', 'education', 'health', 'world', 'devotional', 'weather', 'breakingNews', 'trendingNews', 'home'].includes(activeTab)
+      ) {
         const res = await api.request<any>('/api/admin/content/news');
         if (res && res.data) setNewsList(res.data);
       } else if (activeTab === 'channels') {
@@ -211,11 +296,107 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
       } else if (activeTab === 'logs') {
         const res = await api.request<any>('/api/admin/security/audit');
         if (res && res.data) setAuditLogsList(res.data);
+      } else if (activeTab === 'liveRecordings' || activeTab === 'userStreams') {
+        const res = await api.request<any>('/api/streams');
+        if (res && res.data && Array.isArray(res.data)) {
+          setLiveRecordingsList(res.data);
+        } else if (Array.isArray(res)) {
+          setLiveRecordingsList(res);
+        }
       }
     } catch (e) {
       console.error('Failed to load admin panel tab data:', e);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Universal Global Upload Handler
+  const handleGlobalUploadSubmit = async (targetStatus: 'published' | 'draft' = 'published') => {
+    let finalTitle = globalUploadTitle.trim();
+    if (!finalTitle) {
+      if (globalUploadFileName) {
+        finalTitle = globalUploadFileName.replace(/\.[^/.]+$/, "").split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      } else if (globalUploadMediaUrl) {
+        const fileFromUrl = globalUploadMediaUrl.split('/').pop() || '';
+        finalTitle = fileFromUrl.replace(/\.[^/.]+$/, "").split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      } else {
+        finalTitle = `${globalUploadCategory} Content ${new Date().toLocaleDateString()}`;
+      }
+      setGlobalUploadTitle(finalTitle);
+    }
+
+    setGlobalUploading(true);
+    setGlobalUploadProgress(20);
+    try {
+      setGlobalUploadProgress(60);
+      const payload = {
+        title: finalTitle,
+        summary: globalUploadSummary.trim() || finalTitle,
+        body: globalUploadBody.trim() || globalUploadSummary.trim() || finalTitle,
+        category: globalUploadCategory,
+        language: globalUploadLanguage,
+        author: globalUploadReporter || user?.email || 'Admin',
+        reporter: globalUploadReporter || user?.email || 'Admin',
+        region: globalUploadRegion,
+        district: globalUploadDistrict,
+        location: globalUploadDistrict !== 'All Districts' ? globalUploadDistrict : globalUploadRegion,
+        imageUrl: globalUploadMediaUrl,
+        thumbnailUrl: globalUploadThumbnailUrl || globalUploadMediaUrl,
+        videoUrl: globalUploadVideoUrl,
+        source: 'NEXUS Network',
+        readMinutes: '5',
+        status: targetStatus,
+      };
+
+      if (globalUploadType === 'news' || globalUploadType === 'breaking') {
+        await api.request('/api/admin/content/news', {
+          method: 'POST',
+          body: JSON.stringify({ ...payload, isBreaking: globalUploadType === 'breaking' }),
+        });
+      } else if (globalUploadType === 'top_story') {
+        await api.request('/api/admin/top-stories', {
+          method: 'POST',
+          body: JSON.stringify({
+            headline: globalUploadTitle.trim(),
+            description: globalUploadSummary.trim(),
+            article: globalUploadBody.trim(),
+            category: globalUploadCategory,
+            language: globalUploadLanguage,
+            author: globalUploadReporter,
+            status: targetStatus,
+            priority: '0',
+          }),
+        });
+      } else if (globalUploadType === 'reel' || globalUploadType === 'video') {
+        await api.uploadReel(globalUploadTitle, globalUploadSummary, globalUploadVideoUrl || globalUploadMediaUrl, globalUploadRegion);
+      } else if (globalUploadType === 'live_tv_thumb') {
+        await api.request('/api/admin/live-tv/channels', {
+          method: 'POST',
+          body: JSON.stringify({ id: `chan-${Date.now()}`, name: globalUploadTitle, category: globalUploadCategory, videoUrl: globalUploadVideoUrl || globalUploadMediaUrl }),
+        });
+      } else {
+        await api.request('/api/admin/content/news', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
+      setGlobalUploadProgress(100);
+      await new Promise(r => setTimeout(r, 400));
+      setShowGlobalUploadModal(false);
+      setGlobalUploadTitle('');
+      setGlobalUploadSummary('');
+      setGlobalUploadBody('');
+      setGlobalUploadMediaUrl('');
+      setGlobalUploadThumbnailUrl('');
+      setGlobalUploadVideoUrl('');
+      setGlobalUploadProgress(0);
+      showAlert('Success', `Content saved as ${targetStatus.toUpperCase()} and synchronized in real-time across the website!`);
+      loadTabContent();
+    } catch (err: any) {
+      showAlert('Upload Error', err.message || 'Failed to upload content');
+    } finally {
+      setGlobalUploading(false);
     }
   };
 
@@ -232,6 +413,9 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
       videoUrl: newsVideoUrl,
       readMinutes: newsReadMinutes,
       tags: newsTags,
+      region: newsRegion,
+      district: newsDistrict,
+      location: newsDistrict !== 'All Districts' ? newsDistrict : newsRegion === 'AP' ? 'Andhra Pradesh' : newsRegion === 'Telangana' ? 'Telangana' : 'Delhi',
     };
     try {
       if (editingId) {
@@ -361,47 +545,110 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const handleDeleteItem = (endpoint: string, id: string) => {
     confirmAction(
       'Confirm Deletion',
-      `Are you sure you want to permanently delete this item (${id})?`,
+      `Are you sure you want to permanently delete this item?`,
       async () => {
+        // Optimistic UI update
+        setLiveRecordingsList(prev => prev.filter((item: any) => item.id !== id));
+        setNewsList(prev => prev.filter((item: any) => item.id !== id));
+        setChannelList(prev => prev.filter((item: any) => item.id !== id));
+
         try {
           await api.request(endpoint, { method: 'DELETE' });
+          showAlert('Deleted', 'Item deleted successfully.');
           loadTabContent();
         } catch (err: any) {
-          showAlert('Deletion failed', err.message);
+          try {
+            await api.request(`/api/admin/content/live-streams/${id}`, { method: 'DELETE' });
+            showAlert('Deleted', 'Item deleted successfully.');
+            loadTabContent();
+            return;
+          } catch (e) {}
+          showAlert('Deletion failed', err.message || 'Failed to delete item.');
+          loadTabContent();
         }
       }
     );
   };
 
-  const handlePickMediaFile = async () => {
+  const uploadComputerFile = async (mimeType: string, onUploaded: (url: string, filename: string) => void) => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+      if (Platform.OS === 'web') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = mimeType;
+        input.onchange = async (e: any) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          if (file.size > 100 * 1024 * 1024) {
+            showAlert('File Too Large', 'Please select a file smaller than 100MB.');
+            return;
+          }
+          const cleanName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            const base64Data = reader.result?.toString().split(',')[1] || '';
+            try {
+              const res = await api.request<any>('/api/admin/media-library/upload', {
+                method: 'POST',
+                body: JSON.stringify({ filename: cleanName, base64Data })
+              });
+              if (res && res.url) {
+                const fullUrl = res.url.startsWith('http') ? res.url : `${API_URL}${res.url}`;
+                onUploaded(fullUrl, file.name);
+              } else {
+                onUploaded(`data:${file.type};base64,${base64Data}`, file.name);
+              }
+            } catch (err) {
+              onUploaded(`data:${file.type};base64,${base64Data}`, file.name);
+            }
+          };
+          reader.readAsDataURL(file);
+        };
+        input.click();
+        return;
+      }
+
+      const result = await DocumentPicker.getDocumentAsync({ type: mimeType, copyToCacheDirectory: true });
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        if (Platform.OS === 'web') {
-          const file = asset.file;
-          if (file) {
-            const reader = new FileReader();
-            reader.onloadend = async () => {
-              const base64 = reader.result?.toString().split(',')[1] || '';
-              try {
-                await api.request('/api/admin/media-library/upload', {
-                  method: 'POST',
-                  body: JSON.stringify({ filename: asset.name, base64Data: base64 })
-                });
-                showAlert('Upload Success', `Uploaded ${asset.name}`);
-                loadTabContent();
-              } catch (e: any) {
-                showAlert('File upload failed', e.message);
-              }
-            };
-            reader.readAsDataURL(file);
+        const cleanName = `${Date.now()}_${asset.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+
+        const processBase64 = async (base64: string) => {
+          try {
+            const res = await api.request<any>('/api/admin/media-library/upload', {
+              method: 'POST',
+              body: JSON.stringify({ filename: cleanName, base64Data: base64 })
+            });
+            if (res && res.url) {
+              const fullUrl = res.url.startsWith('http') ? res.url : `${API_URL}${res.url}`;
+              onUploaded(fullUrl, asset.name);
+            } else {
+              onUploaded(`data:${asset.mimeType || 'image/png'};base64,${base64}`, asset.name);
+            }
+          } catch (e: any) {
+            onUploaded(`data:${asset.mimeType || 'image/png'};base64,${base64}`, asset.name);
           }
-        }
+        };
+
+        const resp = await fetch(asset.uri);
+        const blob = await resp.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result?.toString().split(',')[1] || '';
+          processBase64(base64);
+        };
+        reader.readAsDataURL(blob);
       }
     } catch (e) {
-      console.error(e);
+      console.error('Failed to pick computer file:', e);
     }
+  };
+
+  const handlePickMediaFile = async () => {
+    uploadComputerFile('*/*', (url, name) => {
+      showAlert('Upload Success', `Uploaded ${name} to server media library.`);
+      loadTabContent();
+    });
   };
 
   const handleUploadNewsImage = async () => {
@@ -515,6 +762,116 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
     } catch (e) {
       setUploadingNewsVideo(false);
       console.error(e);
+    }
+  };
+
+  // Bulk Data Import & Replacement Handler
+  const handleExecuteBulkImport = async () => {
+    if (!bulkJsonText.trim()) return showAlert('Missing Data', 'Please paste JSON data or select a file to import.');
+    let parsedItems: any[] = [];
+    try {
+      parsedItems = JSON.parse(bulkJsonText.trim());
+      if (!Array.isArray(parsedItems)) {
+        return showAlert('Invalid Format', 'JSON data must be an array of objects [ { ... }, { ... } ].');
+      }
+    } catch (e: any) {
+      return showAlert('JSON Syntax Error', `Failed to parse JSON: ${e.message}`);
+    }
+
+    confirmAction(
+      `Confirm Bulk Data ${bulkMode === 'replace' ? 'REPLACEMENT' : 'Import'}`,
+      `Are you sure you want to ${bulkMode === 'replace' ? 'WIPE ALL EXISTING DATA and REPLACE' : 'append data to'} the "${bulkTarget.toUpperCase()}" database with ${parsedItems.length} records?`,
+      async () => {
+        setBulkProcessing(true);
+        try {
+          const res = await api.request<any>('/api/admin/content/bulk-import', {
+            method: 'POST',
+            body: JSON.stringify({
+              target: bulkTarget,
+              mode: bulkMode,
+              items: parsedItems,
+            })
+          });
+          showAlert('Bulk Import Success', res.message || `Successfully processed ${parsedItems.length} records.`);
+          setShowBulkModal(false);
+          setBulkJsonText('');
+          loadTabContent();
+        } catch (err: any) {
+          showAlert('Bulk Import Failed', err.message);
+        } finally {
+          setBulkProcessing(false);
+        }
+      }
+    );
+  };
+
+  const handlePickBulkFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (Platform.OS === 'web') {
+          const file = asset.file;
+          if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const text = reader.result?.toString() || '';
+              setBulkJsonText(text);
+              showAlert('File Loaded', `Loaded content from ${asset.name}. Review JSON below and click Execute.`);
+            };
+            reader.readAsText(file);
+          }
+        }
+      }
+    } catch (e: any) {
+      showAlert('Failed to read file', e.message);
+    }
+  };
+
+  const handleFillSampleJson = (target: string) => {
+    if (target === 'news') {
+      setBulkJsonText(JSON.stringify([
+        {
+          title: "Global AI & Tech Summit 2026",
+          summary: "Engineers unveil next-gen quantum inference chip operating under 2GB RAM.",
+          body: "Scientists today announced a breakthrough in artificial intelligence compression, allowing high-performance language models to execute locally on consumer devices with zero latency.",
+          category: "Technology",
+          source: "NEXUS Tech",
+          readMinutes: 4,
+          imageUrl: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800"
+        },
+        {
+          title: "International Economic Alliance Signs Landmark Accord",
+          summary: "Global delegates unite to solidify digital trade networks across continents.",
+          body: "In a historic summit, world financial leaders signed a bilateral trade protocol aiming to streamline cross-border supply chains and reduce tariffs.",
+          category: "Business",
+          source: "NEXUS Financial",
+          readMinutes: 5,
+          imageUrl: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800"
+        }
+      ], null, 2));
+    } else if (target === 'posts') {
+      setBulkJsonText(JSON.stringify([
+        {
+          title: "Behind the Scenes at NEXUS Studios",
+          body: "Our broadcasting team preparing the master control studio for live news coverage!",
+          imageUrl: "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=800"
+        },
+        {
+          title: "Community News Roundup - Morning Edition",
+          body: "Key highlights from local reporters across Visakhapatnam, Hyderabad, and Delhi.",
+          imageUrl: "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=800"
+        }
+      ], null, 2));
+    } else if (target === 'reels') {
+      setBulkJsonText(JSON.stringify([
+        {
+          title: "Live Field Reporting in 4K",
+          description: "Exclusive ground coverage from the tech expo summit.",
+          videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+          location: "Visakhapatnam, AP"
+        }
+      ], null, 2));
     }
   };
 
@@ -738,25 +1095,58 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
     setShowFormModal(true);
   };
 
+  // Bulk Upload / Replace Data States
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkTarget, setBulkTarget] = useState<'news' | 'posts' | 'reels' | 'top_stories'>('news');
+  const [bulkMode, setBulkMode] = useState<'replace' | 'append'>('replace');
+  const [bulkJsonText, setBulkJsonText] = useState('');
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+
+  const openFillBulkTarget = (target: 'news' | 'posts' | 'reels' | 'top_stories') => {
+    setBulkTarget(target);
+    setShowBulkModal(true);
+    handleFillSampleJson(target);
+  };
+
   const sidebarItems = [
     { key: 'dashboard', label: '📊 Dashboard' },
-    { key: 'topStories', label: '⭐ Top Stories CMS' },
-    { key: 'news', label: '📰 News Stories' },
+    { key: 'home', label: '🏠 Home Page CMS' },
+    { key: 'topStories', label: '⭐ Top Stories' },
+    { key: 'breakingNews', label: '🚨 Breaking News' },
+    { key: 'trendingNews', label: '⚡ Trending News' },
+    { key: 'news', label: '📰 All News Stories' },
+    { key: 'reels', label: '🎬 Video Reels' },
     { key: 'channels', label: '📺 Live TV Channels' },
-    { key: 'reporters', label: '🎙️ Reporter Station' },
-    { key: 'users', label: '👥 User Profiles' },
-    { key: 'ads', label: '💵 Ads Campaigns' },
-    { key: 'notifications', label: '🔔 Push Notifications' },
+    { key: 'userStreams', label: '📹 User Streams & Live' },
+    { key: 'entertainment', label: '🎬 Entertainment' },
+    { key: 'sports', label: '⚽ Sports' },
+    { key: 'politics', label: '🏛️ Politics' },
+    { key: 'business', label: '💼 Business' },
+    { key: 'technology', label: '💻 Technology' },
+    { key: 'education', label: '📚 Education' },
+    { key: 'health', label: '🏥 Health' },
+    { key: 'world', label: '🌎 World' },
+    { key: 'devotional', label: '🛕 Devotional' },
+    { key: 'weather', label: '☀️ Weather' },
+    { key: 'categories', label: '🏷️ Categories' },
     { key: 'media', label: '📁 Media Library' },
-    { key: 'database', label: '🗄️ Database Manager' },
-    { key: 'backups', label: '💾 Backup & Restore' },
-    { key: 'logs', label: '📜 System Audit Logs' },
+    { key: 'ads', label: '💵 Advertisements' },
+    { key: 'users', label: '👥 User Directory' },
+    { key: 'reporters', label: '🎙️ Reporters Station' },
+    { key: 'notifications', label: '🔔 Notifications' },
+    { key: 'analytics', label: '📈 Analytics' },
+    { key: 'seo', label: '🔍 SEO & Meta' },
+    { key: 'comments', label: '💬 Comments' },
+    { key: 'logs', label: '📜 Audit Logs' },
+    { key: 'rolesPermissions', label: '🛡️ Roles & RBAC' },
+    { key: 'bulkUpload', label: '📥 Bulk Upload' },
+    { key: 'settings', label: '⚙️ Settings' },
   ];
 
   return (
     <View style={styles.fill}>
-      {/* Background */}
-      <LinearGradient colors={['#070A14', '#020408']} style={StyleSheet.absoluteFill} />
+      {/* Light Theme Background */}
+      <LinearGradient colors={['#F8FAFC', '#F1F5F9']} style={StyleSheet.absoluteFill} />
 
       {/* Main Layout Container */}
       <View style={{ flex: 1, flexDirection: 'row' }}>
@@ -776,7 +1166,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 onPress={() => setActiveTab(item.key as any)}
               >
                 <Text style={[styles.sidebarItemText, activeTab === item.key && styles.sidebarItemTextActive]}>
-                  {sidebarCollapsed ? item.label.split(' ')[0] : item.label}
+                  {sidebarCollapsed ? item.label.split(' ')[0] : <Translate text={item.label} />}
                 </Text>
               </Pressable>
             ))}
@@ -788,13 +1178,36 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
           {/* Header Bar */}
           <View style={styles.header}>
             <View>
-              <Text style={styles.breadcrumbs}>Super Admin Dashboard  ›  {activeTab.toUpperCase()}</Text>
-              <Text style={styles.pageTitle}>System Administration Control</Text>
+              <Text style={styles.breadcrumbs}><Translate text="Super Admin Dashboard" />  ›  {activeTab.toUpperCase()}</Text>
+              <Text style={styles.pageTitle}><Translate text="System Administration Control" /></Text>
             </View>
-            <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
-              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Root Admin: {user?.email}</Text>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <Pressable 
+                onPress={() => setActiveTab('notifications')} 
+                style={[styles.iconBtn, { backgroundColor: 'rgba(255,255,255,0.06)', width: 34, height: 34 }]}
+              >
+                <Text style={{ fontSize: 14 }}>🔔</Text>
+              </Pressable>
+              <Pressable 
+                onPress={() => setShowProfileDrawer(true)} 
+                style={[styles.addBtn, { backgroundColor: '#3B82F6', paddingHorizontal: 12, paddingVertical: 7 }]}
+              >
+                <Text style={styles.addBtnText}>👤 Profile</Text>
+              </Pressable>
+              <Pressable 
+                onPress={() => setActiveTab('settings')} 
+                style={[styles.iconBtn, { backgroundColor: 'rgba(255,255,255,0.06)', width: 34, height: 34 }]}
+              >
+                <Text style={{ fontSize: 14 }}>⚙️</Text>
+              </Pressable>
+              <Pressable 
+                onPress={() => setShowGlobalUploadModal(true)} 
+                style={[styles.addBtn, { backgroundColor: '#10B981', paddingHorizontal: 16, paddingVertical: 7 }]}
+              >
+                <Text style={[styles.addBtnText, { fontSize: 12, fontWeight: '900' }]}>📤 Upload</Text>
+              </Pressable>
               <Pressable onPress={() => navigation.navigate('Home')} style={styles.exitBtn}>
-                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Exit Portal</Text>
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}><Translate text="Exit Portal" /></Text>
               </Pressable>
             </View>
           </View>
@@ -817,6 +1230,42 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                 {/* 1. DASHBOARD VIEW */}
                 {activeTab === 'dashboard' && (
                   <View>
+                    {/* Quick Instant Content Upload Action Bar */}
+                    <View style={{ marginBottom: 16, padding: 16, backgroundColor: 'rgba(59, 130, 246, 0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(59, 130, 246, 0.2)' }}>
+                      <Text style={{ color: '#1E293B', fontSize: 13, fontWeight: '800', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        ⚡ Instant Content Creator & Upload Bar
+                      </Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                        <Pressable
+                          style={[styles.addBtn, { backgroundColor: '#10B981', paddingHorizontal: 14, paddingVertical: 8 }]}
+                          onPress={openAddNews}
+                        >
+                          <Text style={styles.addBtnText}>📰 + Upload District News (AP/Telangana/Delhi)</Text>
+                        </Pressable>
+
+                        <Pressable
+                          style={[styles.addBtn, { backgroundColor: '#3B82F6', paddingHorizontal: 14, paddingVertical: 8 }]}
+                          onPress={openAddChannel}
+                        >
+                          <Text style={styles.addBtnText}>📺 + Upload Live TV Channel</Text>
+                        </Pressable>
+
+                        <Pressable
+                          style={[styles.addBtn, { backgroundColor: '#8B5CF6', paddingHorizontal: 14, paddingVertical: 8 }]}
+                          onPress={() => openFillBulkTarget('news')}
+                        >
+                          <Text style={styles.addBtnText}>📥 + Bulk Data Replace</Text>
+                        </Pressable>
+
+                        <Pressable
+                          style={[styles.addBtn, { backgroundColor: '#EC4899', paddingHorizontal: 14, paddingVertical: 8 }]}
+                          onPress={openAddAd}
+                        >
+                          <Text style={styles.addBtnText}>💵 + Add Ad Campaign</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+
                     {/* KPI Cards Grid */}
                     <View style={styles.grid}>
                       <View style={styles.kpiCard}>
@@ -857,11 +1306,11 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                         <Text style={styles.kpiLabel}>RTMP Transcoder</Text>
                       </View>
                       <View style={styles.statusBox}>
-                        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>{kpis.cpuUsage}</Text>
+                        <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '800' }}>{kpis.cpuUsage}</Text>
                         <Text style={styles.kpiLabel}>CPU Load</Text>
                       </View>
                       <View style={styles.statusBox}>
-                        <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>{kpis.memUsage}</Text>
+                        <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '800' }}>{kpis.memUsage}</Text>
                         <Text style={styles.kpiLabel}>RAM Utilization</Text>
                       </View>
                     </View>
@@ -873,7 +1322,15 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                   <View>
                     <View style={styles.actionHeader}>
                       <Text style={styles.sectionHeader}>Platform News Articles ({newsList.length})</Text>
-                      <Pressable style={styles.addBtn} onPress={openAddNews}><Text style={styles.addBtnText}>+ Add News Story</Text></Pressable>
+                      <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                        <Pressable style={styles.addBtn} onPress={openAddNews}><Text style={styles.addBtnText}>+ Add Single Story</Text></Pressable>
+                        <Pressable style={[styles.addBtn, { backgroundColor: '#10B981' }]} onPress={() => { setBulkTarget('news'); setBulkMode('replace'); setShowBulkModal(true); }}>
+                          <Text style={styles.addBtnText}>📥 Bulk Replace / Upload</Text>
+                        </Pressable>
+                        <Pressable style={[styles.addBtn, { backgroundColor: '#EF4444' }]} onPress={() => handleDeleteItem('/api/admin/content/clear-all/news', 'all news')}>
+                          <Text style={styles.addBtnText}>🗑️ Clear All News</Text>
+                        </Pressable>
+                      </View>
                     </View>
                     <View style={styles.table}>
                       <View style={styles.thRow}>
@@ -893,6 +1350,89 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                           </View>
                         </View>
                       ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 2B. BULK DATA REPLACEMENT CONSOLE */}
+                {activeTab === 'bulkUpload' && (
+                  <View style={{ backgroundColor: 'rgba(255,255,255,0.02)', padding: 20, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                    <Text style={{ color: '#fff', fontSize: 18, fontWeight: '900', marginBottom: 4 }}>📥 Bulk Data Import & Data Replacement</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 20 }}>
+                      Easily upload JSON files or paste JSON data arrays to replace existing posts, news, or reels data in bulk.
+                    </Text>
+
+                    {/* Step 1: Target Table */}
+                    <Text style={styles.label}>1. Select Target Collection / Table</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                      {(['news', 'posts', 'reels', 'top_stories'] as const).map(t => (
+                        <Pressable
+                          key={t}
+                          style={[styles.filterPill, bulkTarget === t && styles.filterPillActive, { paddingHorizontal: 16, paddingVertical: 8 }]}
+                          onPress={() => { setBulkTarget(t); handleFillSampleJson(t); }}
+                        >
+                          <Text style={[styles.filterPillText, { fontSize: 12 }]}>{t === 'news' ? '📰 News Articles' : t === 'posts' ? '📝 Social Posts' : t === 'reels' ? '🎬 Reels Videos' : '⭐ Top Stories'}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+
+                    {/* Step 2: Mode */}
+                    <Text style={styles.label}>2. Select Import Mode</Text>
+                    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
+                      <Pressable
+                        style={[styles.filterPill, bulkMode === 'replace' && { backgroundColor: '#EF4444', borderColor: '#EF4444' }, { paddingHorizontal: 16, paddingVertical: 8 }]}
+                        onPress={() => setBulkMode('replace')}
+                      >
+                        <Text style={[styles.filterPillText, { fontSize: 12 }]}>🔴 REPLACE ALL (Wipe & Replace)</Text>
+                      </Pressable>
+                      <Pressable
+                        style={[styles.filterPill, bulkMode === 'append' && { backgroundColor: '#10B981', borderColor: '#10B981' }, { paddingHorizontal: 16, paddingVertical: 8 }]}
+                        onPress={() => setBulkMode('append')}
+                      >
+                        <Text style={[styles.filterPillText, { fontSize: 12 }]}>🟢 APPEND (Keep existing & add new)</Text>
+                      </Pressable>
+                    </View>
+
+                    {/* Step 3: Source Action Buttons */}
+                    <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14, alignItems: 'center' }}>
+                      <Pressable style={[styles.addBtn, { backgroundColor: '#3B82F6', paddingHorizontal: 16, paddingVertical: 10 }]} onPress={handlePickBulkFile}>
+                        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>📁 Upload JSON File from Device</Text>
+                      </Pressable>
+                      <Pressable style={[styles.addBtn, { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 16, paddingVertical: 10 }]} onPress={() => handleFillSampleJson(bulkTarget)}>
+                        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>📄 Load Sample Template</Text>
+                      </Pressable>
+                      <Pressable style={[styles.addBtn, { backgroundColor: '#EF4444', paddingHorizontal: 16, paddingVertical: 10 }]} onPress={() => handleDeleteItem(`/api/admin/content/clear-all/${bulkTarget}`, bulkTarget)}>
+                        <Text style={{ color: '#fff', fontWeight: '800', fontSize: 12 }}>🗑️ Clear All {bulkTarget.toUpperCase()}</Text>
+                      </Pressable>
+                    </View>
+
+                    {/* Step 4: JSON Editor */}
+                    <Text style={styles.label}>3. JSON Data Array Editor (Paste or Edit JSON below)</Text>
+                    <TextInput
+                      style={[styles.input, { height: 260, textAlignVertical: 'top', fontFamily: Platform.OS === 'web' ? 'monospace' : undefined, fontSize: 12, backgroundColor: '#070A14' }]}
+                      multiline
+                      value={bulkJsonText}
+                      onChangeText={setBulkJsonText}
+                      placeholder='[ { "title": "New Article", "summary": "Summary...", "body": "Full body text...", "category": "General" } ]'
+                      placeholderTextColor="rgba(255,255,255,0.3)"
+                    />
+
+                    {/* Execution Bar */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
+                        {bulkJsonText.trim() ? `Ready to ${bulkMode === 'replace' ? 'replace all' : 'append'} ${bulkTarget} data` : 'Paste JSON array above or pick a file'}
+                      </Text>
+                      <Pressable
+                        style={[styles.addBtn, { backgroundColor: bulkMode === 'replace' ? '#EF4444' : '#10B981', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 }, bulkProcessing && { opacity: 0.5 }]}
+                        onPress={handleExecuteBulkImport}
+                        disabled={bulkProcessing}
+                      >
+                        {bulkProcessing ? (
+                          <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                          <Text style={{ color: '#fff', fontWeight: '900', fontSize: 13 }}>🚀 EXECUTE {bulkMode.toUpperCase()} ({bulkTarget.toUpperCase()})</Text>
+                        )}
+                      </Pressable>
                     </View>
                   </View>
                 )}
@@ -924,6 +1464,103 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                           </View>
                         </View>
                       ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 3.5 LIVE STREAM RECORDINGS & ARCHIVES */}
+                {(activeTab === 'liveRecordings' || activeTab === 'userStreams') && (
+                  <View>
+                    <View style={styles.actionHeader}>
+                      <Text style={styles.sectionHeader}>📹 User Streams, Live Videos & Replay Archives ({liveRecordingsList.length})</Text>
+                      <Pressable style={styles.addBtn} onPress={loadTabContent}><Text style={styles.addBtnText}>🔄 Refresh List</Text></Pressable>
+                    </View>
+
+                    {/* Stream Sub-Filter Pills */}
+                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                      {[
+                        { id: 'all', label: `🎬 All Videos (${liveRecordingsList.length})` },
+                        { id: 'live', label: `🔴 Live Broadcasts (${liveRecordingsList.filter((r: any) => r.isLive).length})` },
+                        { id: 'recorded', label: `📼 Recorded Broadcasts (${liveRecordingsList.filter((r: any) => !r.isLive && r.recorded_video_url).length})` },
+                        { id: 'channels', label: `📺 Live TV Channels (${liveRecordingsList.filter((r: any) => r.profile_name?.includes('Live TV') || ['n1','n2','m1','m2','s1','s2'].includes(r.id)).length})` },
+                        { id: 'news', label: `📰 News Video Clips (${liveRecordingsList.filter((r: any) => !r.isLive && !r.recorded_video_url && r.videoUrl).length})` },
+                      ].map(tab => (
+                        <Pressable
+                          key={tab.id}
+                          style={[styles.filterPill, streamFilter === tab.id && styles.filterPillActive]}
+                          onPress={() => setStreamFilter(tab.id as any)}
+                        >
+                          <Text style={[styles.filterPillText, streamFilter === tab.id && { color: '#fff', fontWeight: '800' }]}>{tab.label}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+
+                    <View style={styles.table}>
+                      <View style={styles.thRow}>
+                        <Text style={[styles.th, { flex: 2 }]}>Title / Broadcast</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Broadcaster / Source</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Category</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Status</Text>
+                        <Text style={[styles.th, { flex: 1.5, textAlign: 'right' }]}>Actions</Text>
+                      </View>
+                      {liveRecordingsList.filter((rec: any) => {
+                        if (streamFilter === 'live') return rec.isLive;
+                        if (streamFilter === 'recorded') return !rec.isLive && rec.recorded_video_url;
+                        if (streamFilter === 'channels') return rec.profile_name?.includes('Live TV') || ['n1','n2','m1','m2','s1','s2'].includes(rec.id);
+                        if (streamFilter === 'news') return !rec.isLive && !rec.recorded_video_url && rec.videoUrl;
+                        return true;
+                      }).length === 0 ? (
+                        <View style={{ padding: 24, alignItems: 'center' }}>
+                          <Text style={{ color: '#64748B', fontSize: 13, fontWeight: '700' }}>No live streams or video items found in this section.</Text>
+                        </View>
+                      ) : (
+                        liveRecordingsList.filter((rec: any) => {
+                          if (streamFilter === 'live') return rec.isLive;
+                          if (streamFilter === 'recorded') return !rec.isLive && rec.recorded_video_url;
+                          if (streamFilter === 'channels') return rec.profile_name?.includes('Live TV') || ['n1','n2','m1','m2','s1','s2'].includes(rec.id);
+                          if (streamFilter === 'news') return !rec.isLive && !rec.recorded_video_url && rec.videoUrl;
+                          return true;
+                        }).map((rec) => (
+                          <View key={rec.id} style={styles.trRow}>
+                            <View style={{ flex: 2, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                              <View style={{ width: 48, height: 34, borderRadius: 4, backgroundColor: '#1E293B', overflow: 'hidden', justifyContent: 'center', alignItems: 'center' }}>
+                                {rec.thumbnail_url || rec.imageUrl ? (
+                                  <Image source={{ uri: rec.thumbnail_url || rec.imageUrl }} style={{ width: '100%', height: '100%' }} />
+                                ) : (
+                                  <Text style={{ fontSize: 16 }}>📹</Text>
+                                )}
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.tdText, { fontWeight: '700' }]} numberOfLines={1}>{rec.title || rec.stream_title || 'Live Broadcast Recording'}</Text>
+                                <Text style={{ color: '#64748B', fontSize: 10 }}>{rec.location ? `📍 ${rec.location} · ` : ''}{timeAgo(rec.started_at || rec.created_at)}</Text>
+                              </View>
+                            </View>
+                            <Text style={[styles.tdText, { flex: 1 }]} numberOfLines={1}>{rec.profile_name || rec.creator_name || 'Broadcaster'}</Text>
+                            <Text style={[styles.tdText, { flex: 1, color: '#3B82F6' }]}>{rec.category || 'General'}</Text>
+                            <View style={{ flex: 1 }}>
+                              <View style={{ backgroundColor: rec.isLive ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' }}>
+                                <Text style={{ color: rec.isLive ? '#EF4444' : '#10B981', fontSize: 10, fontWeight: '800' }}>
+                                  {rec.isLive ? '🔴 LIVE NOW' : '📼 RECORDED'}
+                                </Text>
+                              </View>
+                            </View>
+                            <View style={[styles.tdActions, { flex: 1.5 }]}>
+                              <Pressable
+                                style={[styles.actionPill, { backgroundColor: '#3B82F6', borderColor: '#3B82F6' }]}
+                                onPress={() => { setPlayingRecording(rec); setShowVideoPlayerModal(true); }}
+                              >
+                                <Text style={[styles.actionPillText, { color: '#fff' }]}>▶ Play Video</Text>
+                              </Pressable>
+                              <Pressable
+                                style={[styles.iconBtn, { backgroundColor: 'rgba(239,68,68,0.15)' }]}
+                                onPress={() => handleDeleteItem(`/api/admin/content/live-streams/${rec.id}`, rec.id)}
+                              >
+                                <Text style={{ color: '#EF4444' }}>🗑️</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        ))
+                      )}
                     </View>
                   </View>
                 )}
@@ -1083,6 +1720,23 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                               <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', marginTop: 6, textAlign: 'center' }} numberOfLines={1}>{file.filename}</Text>
                               <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, textAlign: 'center' }}>Size: {Math.round(file.size / 1024)} KB</Text>
                             </Pressable>
+                            <Pressable
+                              style={[styles.addBtn, { marginTop: 6, backgroundColor: '#3B82F6', width: '100%', paddingVertical: 4, alignItems: 'center' }]}
+                              onPress={() => {
+                                setGlobalUploadTitle(file.filename.split('.')[0].replace(/[-_]/g, ' '));
+                                if (isVideo) {
+                                  setGlobalUploadVideoUrl(fileUrl);
+                                  setGlobalUploadType('reel');
+                                } else {
+                                  setGlobalUploadMediaUrl(fileUrl);
+                                  setGlobalUploadThumbnailUrl(fileUrl);
+                                  setGlobalUploadType('news');
+                                }
+                                setShowGlobalUploadModal(true);
+                              }}
+                            >
+                              <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>📌 Publish to Section</Text>
+                            </Pressable>
                             <Pressable style={styles.mediaDeleteBtn} onPress={() => handleDeleteItem(`/api/admin/media-library/delete?filename=${encodeURIComponent(file.filename)}`, file.filename)}>
                               <Text style={{ color: '#EF4444', fontSize: 10, fontWeight: '800' }}>DELETE</Text>
                             </Pressable>
@@ -1228,6 +1882,86 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                     </View>
                   </View>
                 )}
+                {/* CATEGORY & SECTION CMS MODULE VIEWS */}
+                {[
+                  { tab: 'entertainment', name: 'Entertainment', cat: 'Entertainment', icon: '🎬' },
+                  { tab: 'sports', name: 'Sports', cat: 'Sports', icon: '⚽' },
+                  { tab: 'politics', name: 'Politics', cat: 'Politics', icon: '🏛️' },
+                  { tab: 'business', name: 'Business & Markets', cat: 'Business', icon: '💼' },
+                  { tab: 'technology', name: 'Technology & AI', cat: 'Technology', icon: '💻' },
+                  { tab: 'education', name: 'Education & Jobs', cat: 'Education', icon: '📚' },
+                  { tab: 'health', name: 'Health & Wellness', cat: 'Health', icon: '🏥' },
+                  { tab: 'world', name: 'World & Global News', cat: 'World', icon: '🌎' },
+                  { tab: 'devotional', name: 'Devotional & Temples', cat: 'Devotional', icon: '🛕' },
+                  { tab: 'weather', name: 'Weather Center', cat: 'Weather', icon: '☀️' },
+                  { tab: 'breakingNews', name: 'Breaking News Ticker', cat: 'General', icon: '🚨' },
+                  { tab: 'trendingNews', name: 'Trending News', cat: 'General', icon: '⚡' },
+                  { tab: 'home', name: 'Home Page Sections', cat: 'General', icon: '🏠' },
+                ].map(sec => activeTab === sec.tab && (
+                  <View key={sec.tab}>
+                    <View style={styles.actionHeader}>
+                      <Text style={styles.sectionHeader}>{sec.icon} {sec.name} Module Manager</Text>
+                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                        <Pressable
+                          style={[styles.addBtn, { backgroundColor: '#10B981', paddingHorizontal: 14, paddingVertical: 8 }]}
+                          onPress={() => {
+                            setGlobalUploadCategory(sec.cat);
+                            setShowGlobalUploadModal(true);
+                          }}
+                        >
+                          <Text style={[styles.addBtnText, { fontWeight: '900' }]}>+ Upload {sec.name} Content</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    <View style={styles.table}>
+                      <View style={styles.thRow}>
+                        <Text style={[styles.th, { flex: 2 }]}>Title / Headline</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Category</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Region / District</Text>
+                        <Text style={[styles.th, { flex: 1, textAlign: 'right' }]}>Actions</Text>
+                      </View>
+                      {newsList.filter(n => {
+                        const catLower = (n.category || '').toLowerCase();
+                        const secCatLower = sec.cat.toLowerCase();
+                        const text = `${n.title || ''} ${n.headline || ''} ${n.description || ''}`.toLowerCase();
+
+                        if (sec.tab === 'home') return true;
+                        if (sec.tab === 'breakingNews') return n.is_breaking === 1 || n.isBreaking;
+                        if (sec.tab === 'trendingNews') return true;
+                        if (sec.tab === 'devotional') {
+                          return catLower === 'devotional' || DEVOTIONAL_SUBCATEGORIES.some(ds => ds.toLowerCase() === catLower) || /temple|devotional|god|pooja|ritual|bhagavad|gita|kashi|prashad|darshan|sloka|mantra|divine|spiritual/.test(text);
+                        }
+                        if (sec.tab === 'sports') {
+                          return catLower === 'sports' || /cricket|football|sports|match|stadium|ipl|tennis|badminton|olympics|trophy|champion|messi|ronaldo|kohli|rohit|dhoni|wicket|runs|goal|score/.test(text);
+                        }
+                        if (sec.tab === 'politics') {
+                          return catLower === 'politics' || /election|modi|minister|parliament|governance|politics|political|party|vote|bjp|congress/.test(text);
+                        }
+                        if (sec.tab === 'business') {
+                          return catLower === 'business' || /market|stock|inflation|sensex|nifty|business|economy|billion|rupees|dollar|revenue/.test(text);
+                        }
+                        if (sec.tab === 'technology') {
+                          return catLower === 'technology' || /ai|tech|chip|technology|quantum|software|apple|google|phone|cyber|data/.test(text);
+                        }
+                        if (sec.tab === 'entertainment') {
+                          return catLower === 'entertainment' || /movie|cinema|actor|film|box office|trailer|star|hollywood|tollywood|bollywood/.test(text);
+                        }
+                        return catLower === secCatLower;
+                      }).map(item => (
+                        <View key={item.id} style={styles.trRow}>
+                          <Text style={[styles.tdText, { flex: 2 }]} numberOfLines={1}>{item.title || item.headline}</Text>
+                          <Text style={[styles.tdText, { flex: 1, color: '#3B82F6', fontWeight: '700' }]}>{item.category || sec.cat}</Text>
+                          <Text style={[styles.tdText, { flex: 1 }]}>{item.district || item.region || 'All'}</Text>
+                          <View style={[styles.tdActions, { flex: 1 }]}>
+                            <Pressable style={styles.iconBtn} onPress={() => openEditNews(item)}><Text>✏️</Text></Pressable>
+                            <Pressable style={[styles.iconBtn, { backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={() => handleDeleteItem(`/api/admin/content/news/${item.id}`, item.id)}><Text style={{ color: '#EF4444' }}>🗑️</Text></Pressable>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ))}
               </>
             )}
           </ScrollView>
@@ -1240,7 +1974,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
           <View style={[styles.modalCard, { maxWidth: 800 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle} numberOfLines={1}>🖼️ Media Viewer — {previewMediaFile?.filename}</Text>
-              <Pressable onPress={() => setShowMediaPreviewModal(false)}><Text style={{ color: '#fff', fontSize: 20 }}>✕</Text></Pressable>
+              <Pressable onPress={() => setShowMediaPreviewModal(false)} style={{ padding: 4 }}><Text style={{ color: '#000', fontSize: 22, fontWeight: '900' }}>✕</Text></Pressable>
             </View>
             <ScrollView contentContainerStyle={{ padding: 16, alignItems: 'center' }}>
               {previewMediaFile && (
@@ -1346,6 +2080,40 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                   <TextInput style={[styles.input, { height: 50 }]} multiline value={newsSummary} onChangeText={setNewsSummary} placeholder="Summary" placeholderTextColor="rgba(255,255,255,0.2)" />
                   <Text style={styles.label}>Body Article Markdown</Text>
                   <TextInput style={[styles.input, { height: 100 }]} multiline value={newsBody} onChangeText={setNewsBody} placeholder="Article Body" placeholderTextColor="rgba(255,255,255,0.2)" />
+                  <Text style={styles.label}>Target Region / State</Text>
+                  <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                    {['AP', 'Telangana', 'Delhi/North', 'National', 'Global'].map((r) => (
+                      <Pressable
+                        key={r}
+                        style={[styles.filterPill, newsRegion === r && styles.filterPillActive]}
+                        onPress={() => {
+                          setNewsRegion(r);
+                          setNewsDistrict('All Districts');
+                        }}
+                      >
+                        <Text style={styles.filterPillText}>{r === 'AP' ? '📍 AP / Andhra' : r === 'Telangana' ? '📍 Telangana' : r === 'Delhi/North' ? '📍 Delhi / NCR' : r}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Text style={styles.label}>District Location Focus</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 8 }}>
+                    {(newsRegion === 'AP'
+                      ? ['All Districts', 'Tirupati', 'Visakhapatnam', 'Vijayawada', 'Guntur', 'Kakinada', 'Nellore', 'Anantapur', 'Kurnool', 'Kadapa', 'Eluru', 'Ongole']
+                      : newsRegion === 'Telangana'
+                      ? ['All Districts', 'Hyderabad', 'Warangal', 'Nizamabad', 'Karimnagar', 'Khammam', 'Nalgonda', 'Mahabubnagar', 'Ramagundam', 'Suryapet', 'Siddipet']
+                      : ['All Districts', 'New Delhi', 'South Delhi', 'North Delhi', 'East Delhi', 'West Delhi', 'Gurugram', 'Noida', 'Faridabad', 'Ghaziabad']
+                    ).map((dist) => (
+                      <Pressable
+                        key={dist}
+                        style={[styles.filterPill, newsDistrict === dist && styles.filterPillActive, { marginRight: 6 }]}
+                        onPress={() => setNewsDistrict(dist)}
+                      >
+                        <Text style={styles.filterPillText}>{dist}</Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+
                   <Text style={styles.label}>Category</Text>
                   <TextInput style={styles.input} value={newsCategory} onChangeText={setNewsCategory} placeholder="Category" placeholderTextColor="rgba(255,255,255,0.2)" />
                   <Text style={styles.label}>Source Network</Text>
@@ -1456,17 +2224,538 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* BULK DATA IMPORT & REPLACEMENT MODAL */}
+      <Modal visible={showBulkModal} transparent animationType="fade" onRequestClose={() => setShowBulkModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { maxWidth: 650 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>📥 Bulk Data Upload & Replacement Console</Text>
+              <Pressable onPress={() => setShowBulkModal(false)}><Text style={{ color: '#fff', fontSize: 16 }}>✕</Text></Pressable>
+            </View>
+            <ScrollView contentContainerStyle={styles.formContainer}>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginBottom: 16 }}>
+                Replace or append news, social posts, or reels in bulk. You can upload a .json file or paste a JSON array directly.
+              </Text>
+
+              <Text style={styles.label}>1. Select Target Collection / Table</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+                {(['news', 'posts', 'reels', 'top_stories'] as const).map(t => (
+                  <Pressable
+                    key={t}
+                    style={[styles.filterPill, bulkTarget === t && styles.filterPillActive, { paddingHorizontal: 12, paddingVertical: 6 }]}
+                    onPress={() => { setBulkTarget(t); handleFillSampleJson(t); }}
+                  >
+                    <Text style={styles.filterPillText}>{t === 'news' ? '📰 News' : t === 'posts' ? '📝 Posts' : t === 'reels' ? '🎬 Reels' : '⭐ Top Stories'}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.label}>2. Import Strategy</Text>
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                <Pressable
+                  style={[styles.filterPill, bulkMode === 'replace' && { backgroundColor: '#EF4444', borderColor: '#EF4444' }, { paddingHorizontal: 12, paddingVertical: 6 }]}
+                  onPress={() => setBulkMode('replace')}
+                >
+                  <Text style={styles.filterPillText}>🔴 REPLACE ALL (Clear existing & insert)</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.filterPill, bulkMode === 'append' && { backgroundColor: '#10B981', borderColor: '#10B981' }, { paddingHorizontal: 12, paddingVertical: 6 }]}
+                  onPress={() => setBulkMode('append')}
+                >
+                  <Text style={styles.filterPillText}>🟢 APPEND (Add to existing)</Text>
+                </Pressable>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                <Pressable style={[styles.addBtn, { backgroundColor: '#3B82F6', flex: 1, alignItems: 'center' }]} onPress={handlePickBulkFile}>
+                  <Text style={styles.addBtnText}>📁 Upload JSON File</Text>
+                </Pressable>
+                <Pressable style={[styles.addBtn, { backgroundColor: 'rgba(255,255,255,0.08)', flex: 1, alignItems: 'center' }]} onPress={() => handleFillSampleJson(bulkTarget)}>
+                  <Text style={styles.addBtnText}>📄 Load Sample</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.label}>3. JSON Data Content</Text>
+              <TextInput
+                style={[styles.input, { height: 180, textAlignVertical: 'top', fontSize: 11, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined, backgroundColor: '#070A14' }]}
+                multiline
+                value={bulkJsonText}
+                onChangeText={setBulkJsonText}
+                placeholder='[ { "title": "Headline", "summary": "Short snippet...", "body": "Full body text..." } ]'
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+            </ScrollView>
+            <View style={styles.modalFooter}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowBulkModal(false)}><Text style={{ color: '#fff' }}>Cancel</Text></Pressable>
+              <Pressable
+                style={[styles.saveBtn, { backgroundColor: bulkMode === 'replace' ? '#EF4444' : '#10B981' }, bulkProcessing && { opacity: 0.5 }]}
+                onPress={handleExecuteBulkImport}
+                disabled={bulkProcessing}
+              >
+                {bulkProcessing ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={{ color: '#fff', fontWeight: '900' }}>🚀 Execute {bulkMode.toUpperCase()}</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      {/* CLEAN WHITE SIDE-PANEL PROFILE DRAWER */}
+      <Modal
+        visible={showProfileDrawer}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowProfileDrawer(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', flexDirection: 'row', justifyContent: 'flex-end' }}>
+          <Pressable style={{ flex: 1 }} onPress={() => setShowProfileDrawer(false)} />
+          <View style={{
+            width: Platform.OS === 'web' ? 380 : '85%',
+            height: '100%',
+            backgroundColor: '#FFFFFF',
+            borderLeftWidth: 1,
+            borderLeftColor: '#E2E8F0',
+            shadowColor: '#000',
+            shadowOffset: { width: -4, height: 0 },
+            shadowOpacity: 0.15,
+            shadowRadius: 12,
+            elevation: 10,
+            flexDirection: 'column',
+          }}>
+            {/* Header */}
+            <View style={{ padding: 20, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8FAFC' }}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A', fontFamily: 'Outfit' }}>
+                👤 Admin Profile & Account
+              </Text>
+              <Pressable onPress={() => setShowProfileDrawer(false)} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6, backgroundColor: '#E2E8F0' }}>
+                <Text style={{ color: '#475569', fontWeight: '800', fontSize: 13 }}>✕ Close</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView style={{ flex: 1, padding: 20 }}>
+              {/* User Card */}
+              <View style={{ alignItems: 'center', marginBottom: 24, padding: 20, backgroundColor: '#F1F5F9', borderRadius: 16, borderWidth: 1, borderColor: '#CBD5E1' }}>
+                <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#3B82F6', justifyContent: 'center', alignItems: 'center', marginBottom: 12, borderWidth: 3, borderColor: '#FFFFFF' }}>
+                  <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '900' }}>
+                    {(user?.displayName || activeProfile?.name || 'A').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#0F172A', marginBottom: 2 }}>
+                  {user?.displayName || activeProfile?.name || 'Super Admin'}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 10 }}>{user?.email}</Text>
+
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                  <View style={{ backgroundColor: '#EF4444', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800' }}>👑 SUPER ADMIN</Text>
+                  </View>
+                  <View style={{ backgroundColor: '#10B981', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800' }}>✓ VERIFIED</Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Account Details list */}
+              <View style={{ gap: 14, marginBottom: 24 }}>
+                <View style={{ padding: 14, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>Role & Permissions</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>Root System Control ({user?.role || 'super_admin'})</Text>
+                </View>
+
+                <View style={{ padding: 14, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>Active Workspace Profile</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#0F172A' }}>{activeProfile?.name || 'Default Admin Profile'}</Text>
+                </View>
+
+                <View style={{ padding: 14, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>Bio / Headline</Text>
+                  <Text style={{ fontSize: 13, color: '#334155', lineHeight: 18 }}>{activeProfile?.bio || 'Super Administrator for NEXUS Play Portal.'}</Text>
+                </View>
+              </View>
+
+              {/* Action Buttons */}
+              <View style={{ gap: 10 }}>
+                <Pressable
+                  style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: '#3B82F6', borderRadius: 10, alignItems: 'center' }}
+                  onPress={() => {
+                    setShowProfileDrawer(false);
+                    navigation.navigate('Profile');
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontWeight: '800', fontSize: 13 }}>👤 Open Full Profile Screen</Text>
+                </Pressable>
+
+                <Pressable
+                  style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: '#F1F5F9', borderRadius: 10, alignItems: 'center', borderWidth: 1, borderColor: '#CBD5E1' }}
+                  onPress={() => {
+                    setShowProfileDrawer(false);
+                    navigation.navigate('Home');
+                  }}
+                >
+                  <Text style={{ color: '#0F172A', fontWeight: '700', fontSize: 13 }}>🏠 Back to Main Portal</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* RECORDED VIDEO PLAYER MODAL */}
+      <Modal
+        visible={playingRecording !== null}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setPlayingRecording(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ width: '100%', maxWidth: 800, backgroundColor: '#090D1A', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+            <View style={{ padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '800' }}>
+                📹 {playingRecording?.title || playingRecording?.stream_title || 'Recorded Live Stream Replay'}
+              </Text>
+              <Pressable onPress={() => setPlayingRecording(null)} style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6, backgroundColor: '#EF4444' }}>
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>✕ Close</Text>
+              </Pressable>
+            </View>
+
+            <View style={{ height: 420, backgroundColor: '#000' }}>
+              {playingRecording && (
+                <video
+                  src={playingRecording.recorded_video_url || playingRecording.videoUrl || `${API_URL}/media/uploads/intro.mp4`}
+                  controls
+                  autoPlay
+                  style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              )}
+            </View>
+
+            <View style={{ padding: 16, backgroundColor: '#0D1322', gap: 6 }}>
+              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{playingRecording?.title || playingRecording?.stream_title}</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
+                👤 Broadcaster: {playingRecording?.profile_name || playingRecording?.creator_name || 'Reporter'}  ·  📍 {playingRecording?.location || 'General'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ENTERPRISE GLOBAL QUICK UPLOAD MODAL */}
+      <Modal
+        visible={showGlobalUploadModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowGlobalUploadModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { maxWidth: 650 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { fontSize: 15, fontWeight: '900', color: '#0F172A' }]}>
+                🚀 Universal Enterprise Upload Hub
+              </Text>
+              <Pressable onPress={() => setShowGlobalUploadModal(false)} style={{ padding: 4 }}>
+                <Text style={{ color: '#000', fontSize: 22, fontWeight: '900' }}>✕</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 18, gap: 12 }}>
+              <Text style={styles.label}>1. Select Content Type *</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
+                {[
+                  { id: 'news', label: '📰 News Article' },
+                  { id: 'top_story', label: '⭐ Top Story' },
+                  { id: 'breaking', label: '🚨 Breaking News' },
+                  { id: 'reel', label: '🎬 Video Reel' },
+                  { id: 'video', label: '📹 Video Highlight' },
+                  { id: 'gallery', label: '🖼️ Image Gallery' },
+                  { id: 'live_tv_thumb', label: '📺 Live TV Thumbnail' },
+                ].map(t => (
+                  <Pressable
+                    key={t.id}
+                    style={[styles.filterPill, globalUploadType === t.id && styles.filterPillActive]}
+                    onPress={() => setGlobalUploadType(t.id as any)}
+                  >
+                    <Text style={styles.filterPillText}>{t.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.label}>2. Category *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 4 }}>
+                {[
+                  'Sports', 'Politics', 'Business', 'Technology', 'Entertainment', 'Devotional', 'General', 'Weather', 'World', 'Education', 'Health'
+                ].map(cat => (
+                  <Pressable
+                    key={cat}
+                    style={[styles.filterPill, globalUploadCategory === cat && styles.filterPillActive, { marginRight: 6 }]}
+                    onPress={() => setGlobalUploadCategory(cat)}
+                  >
+                    <Text style={[styles.filterPillText, globalUploadCategory === cat && { color: '#fff', fontWeight: '800' }]}>{cat}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.label}>3. Target Region / State</Text>
+              <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 4 }}>
+                {['AP', 'Telangana', 'Delhi/North', 'National', 'Global'].map(r => (
+                  <Pressable
+                    key={r}
+                    style={[styles.filterPill, globalUploadRegion === r && styles.filterPillActive]}
+                    onPress={() => {
+                      setGlobalUploadRegion(r);
+                      setGlobalUploadDistrict('All Districts');
+                    }}
+                  >
+                    <Text style={styles.filterPillText}>{r}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.label}>Title / Headline *</Text>
+              <TextInput
+                style={styles.input}
+                value={globalUploadTitle}
+                onChangeText={(txt) => {
+                  setGlobalUploadTitle(txt);
+                  const lower = txt.toLowerCase();
+                  let detected = null;
+                  if (/cricket|football|sports|match|stadium|ipl|tennis|badminton|olympics|trophy|champion|messi|ronaldo|kohli|rohit|dhoni|wicket|runs|goal|score/.test(lower)) detected = 'Sports';
+                  else if (/temple|devotional|god|pooja|ritual|bhagavad|gita|kashi|prashad|darshan|sloka|mantra|divine|spiritual/.test(lower)) detected = 'Devotional';
+                  else if (/election|modi|minister|parliament|governance|politics|political|party|vote|bjp|congress/.test(lower)) detected = 'Politics';
+                  else if (/market|stock|inflation|sensex|nifty|business|economy|billion|rupees|dollar|revenue/.test(lower)) detected = 'Business';
+                  else if (/ai|tech|chip|technology|quantum|software|apple|google|phone|cyber|data/.test(lower)) detected = 'Technology';
+                  else if (/movie|cinema|actor|film|box office|trailer|star|hollywood|tollywood|bollywood/.test(lower)) detected = 'Entertainment';
+
+                  if (detected && (globalUploadCategory === 'General' || !globalUploadCategory)) {
+                    setGlobalUploadCategory(detected);
+                  }
+                }}
+                placeholder="Enter headline (e.g. Cricket World Cup Victory)"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+
+              <Text style={styles.label}>Summary Snippet</Text>
+              <TextInput
+                style={[styles.input, { height: 48 }]}
+                multiline
+                value={globalUploadSummary}
+                onChangeText={setGlobalUploadSummary}
+                placeholder="Short description..."
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+
+              <Text style={styles.label}>Body Text / Content</Text>
+              <TextInput
+                style={[styles.input, { height: 80 }]}
+                multiline
+                value={globalUploadBody}
+                onChangeText={setGlobalUploadBody}
+                placeholder="Full article content..."
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+
+              <Text style={styles.label}>Language *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 4 }}>
+                {['English', 'Telugu', 'Hindi', 'Tamil', 'Malayalam', 'Kannada'].map(lang => (
+                  <Pressable
+                    key={lang}
+                    style={[styles.filterPill, globalUploadLanguage === lang && styles.filterPillActive, { marginRight: 6 }]}
+                    onPress={() => setGlobalUploadLanguage(lang)}
+                  >
+                    <Text style={styles.filterPillText}>{lang}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.label}>Reporter / Author Name</Text>
+              <TextInput
+                style={styles.input}
+                value={globalUploadReporter}
+                onChangeText={setGlobalUploadReporter}
+                placeholder="Enter reporter or author name..."
+                placeholderTextColor="rgba(255,255,255,0.3)"
+              />
+
+              <Text style={styles.label}>Media / Cover Image URL or Asset</Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                  value={globalUploadMediaUrl}
+                  onChangeText={setGlobalUploadMediaUrl}
+                  placeholder="https://... or upload file"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                />
+                <Pressable
+                  style={styles.uploadBtnSmall}
+                  onPress={() => uploadComputerFile('image/*', (url, name) => {
+                    setGlobalUploadMediaUrl(url);
+                    setGlobalUploadFileName(name);
+                    if (!globalUploadTitle.trim() && name) {
+                      const cleanTitle = name.replace(/\.[^/.]+$/, "").split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                      setGlobalUploadTitle(cleanTitle);
+                    }
+                    showAlert('File Attached', `Cover image attached: ${name}`);
+                  })}
+                >
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>📁 Browse Computer</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.label}>Thumbnail Image Asset (Supabase / Storage URL)</Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                  value={globalUploadThumbnailUrl}
+                  onChangeText={setGlobalUploadThumbnailUrl}
+                  placeholder="https://... or upload thumbnail"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                />
+                <Pressable
+                  style={styles.uploadBtnSmall}
+                  onPress={() => uploadComputerFile('image/*', (url, name) => {
+                    setGlobalUploadThumbnailUrl(url);
+                    if (!globalUploadTitle.trim() && name) {
+                      const cleanTitle = name.replace(/\.[^/.]+$/, "").split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                      setGlobalUploadTitle(cleanTitle);
+                    }
+                    showAlert('File Attached', `Thumbnail image attached: ${name}`);
+                  })}
+                >
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>🖼️ Thumbnail</Text>
+                </Pressable>
+              </View>
+
+              <Text style={styles.label}>Video Asset (Supabase / Storage URL)</Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0 }]}
+                  value={globalUploadVideoUrl}
+                  onChangeText={setGlobalUploadVideoUrl}
+                  placeholder="https://... or upload video"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                />
+                <Pressable
+                  style={styles.uploadBtnSmall}
+                  onPress={() => uploadComputerFile('video/*', (url, name) => {
+                    setGlobalUploadVideoUrl(url);
+                    if (!globalUploadTitle.trim() && name) {
+                      const cleanTitle = name.replace(/\.[^/.]+$/, "").split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+                      setGlobalUploadTitle(cleanTitle);
+                    }
+                    showAlert('File Attached', `Video asset attached: ${name}`);
+                  })}
+                >
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>📹 Video</Text>
+                </Pressable>
+              </View>
+
+              {globalUploading && (
+                <View style={{ marginTop: 10, gap: 4 }}>
+                  <Text style={{ color: '#10B981', fontSize: 11, fontWeight: '800' }}>
+                    Publishing & Broadcasting... {globalUploadProgress}%
+                  </Text>
+                  <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 3, overflow: 'hidden' }}>
+                    <View style={{ height: '100%', width: `${globalUploadProgress}%`, backgroundColor: '#10B981' }} />
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowGlobalUploadModal(false)}>
+                <Text style={{ color: '#fff' }}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.saveBtn, { backgroundColor: '#F59E0B' }, globalUploading && { opacity: 0.5 }]}
+                onPress={() => handleGlobalUploadSubmit('draft')}
+                disabled={globalUploading}
+              >
+                <Text style={{ color: '#fff', fontWeight: '800' }}>💾 Save Draft</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.saveBtn, { backgroundColor: '#10B981' }, globalUploading && { opacity: 0.5 }]}
+                onPress={() => handleGlobalUploadSubmit('published')}
+                disabled={globalUploading}
+              >
+                {globalUploading ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={{ color: '#fff', fontWeight: '900' }}>🚀 Publish & Real-Time Sync</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Live Stream & Video Replay Player Modal */}
+      <Modal visible={showVideoPlayerModal} animationType="fade" transparent={true} onRequestClose={() => setShowVideoPlayerModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { maxWidth: 840, backgroundColor: '#FFFFFF' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={{ color: '#0F172A', fontSize: 15, fontWeight: '800' }}>
+                🎥 {playingRecording?.title || playingRecording?.stream_title || 'Live Stream Replay'}
+              </Text>
+              <Pressable onPress={() => { setShowVideoPlayerModal(false); setPlayingRecording(null); }} style={{ padding: 4 }}>
+                <Text style={{ color: '#000', fontSize: 22, fontWeight: '900' }}>✕</Text>
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              {playingRecording && (
+                <View style={{ gap: 12 }}>
+                  <View style={{ width: '100%', height: 380, backgroundColor: '#000', borderRadius: 8, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' }}>
+                    {Platform.OS === 'web' ? (
+                      <video
+                        src={playingRecording.videoUrl || playingRecording.recorded_video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'}
+                        controls
+                        autoPlay
+                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <View style={{ alignItems: 'center' }}>
+                        <Text style={{ color: '#0F172A', fontSize: 14 }}>Playing stream video:</Text>
+                        <Text style={{ color: '#3B82F6', fontSize: 12, marginTop: 4 }}>{playingRecording.videoUrl || playingRecording.recorded_video_url}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' }}>
+                    <View>
+                      <Text style={{ color: '#0F172A', fontSize: 14, fontWeight: '800' }}>{playingRecording.title || playingRecording.stream_title || 'Live Broadcast'}</Text>
+                      <Text style={{ color: '#475569', fontSize: 11, marginTop: 2, fontWeight: '600' }}>
+                        🎙️ Broadcaster: {playingRecording.profile_name || 'NEXUS Reporter'} · Category: {playingRecording.category || 'General'}
+                      </Text>
+                      <Text style={{ color: '#64748B', fontSize: 10, marginTop: 2, fontWeight: '600' }}>
+                        📍 Location: {playingRecording.location || 'All Regions'} · Status: {playingRecording.isLive ? '🔴 LIVE NOW' : '📼 RECORDED ARCHIVE'}
+                      </Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={{ color: '#047857', fontSize: 13, fontWeight: '900' }}>👁️ {playingRecording.viewers || playingRecording.peak_viewers || 1} Viewers</Text>
+                      <Text style={{ color: '#475569', fontSize: 10, marginTop: 2, fontWeight: '700' }}>
+                        {playingRecording.duration ? `Duration: ${Math.round(playingRecording.duration / 60)} min` : ''}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
+  fill: { flex: 1, minHeight: '100vh' as any, width: '100%', backgroundColor: '#F8FAFC' },
   sidebar: {
     width: 220,
-    backgroundColor: '#090D1A',
+    backgroundColor: '#FFFFFF',
     borderRightWidth: 1,
-    borderRightColor: 'rgba(255,255,255,0.08)',
+    borderRightColor: '#E2E8F0',
   },
   sidebarCollapsed: { width: 50 },
   sidebarHeader: {
@@ -1475,64 +2764,64 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: '#E2E8F0',
   },
-  sidebarTitle: { color: '#fff', fontSize: 13, fontWeight: '900', fontFamily: 'Outfit', textTransform: 'uppercase', letterSpacing: 0.5 },
-  sidebarToggle: { padding: 4, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 4 },
+  sidebarTitle: { color: '#0F172A', fontSize: 13, fontWeight: '900', fontFamily: 'Outfit', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sidebarToggle: { padding: 4, backgroundColor: '#F1F5F9', borderRadius: 4 },
   sidebarItem: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 6, marginHorizontal: 8, marginVertical: 2 },
   sidebarItemActive: { backgroundColor: '#3B82F6' },
-  sidebarItemText: { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: '700' },
-  sidebarItemTextActive: { color: '#fff' },
+  sidebarItemText: { color: '#475569', fontSize: 12, fontWeight: '700' },
+  sidebarItemTextActive: { color: '#FFFFFF' },
   header: {
     paddingVertical: 14,
     paddingHorizontal: 20,
-    backgroundColor: '#090D1A',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: '#E2E8F0',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  breadcrumbs: { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
-  pageTitle: { color: '#fff', fontSize: 16, fontWeight: '800', fontFamily: 'Outfit', marginTop: 2 },
+  breadcrumbs: { color: '#64748B', fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
+  pageTitle: { color: '#0F172A', fontSize: 16, fontWeight: '800', fontFamily: 'Outfit', marginTop: 2 },
   exitBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 4, backgroundColor: '#EF4444' },
-  contentScroller: { flex: 1, padding: 20 },
+  contentScroller: { flex: 1, padding: 20, backgroundColor: '#F8FAFC' },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 48 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginVertical: 10 },
-  kpiCard: { flex: 1, minWidth: 140, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 14 },
+  kpiCard: { flex: 1, minWidth: 140, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, padding: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
   kpiVal: { color: '#3B82F6', fontSize: 18, fontWeight: '800', fontFamily: 'Outfit' },
-  kpiLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 4, fontWeight: '700', textTransform: 'uppercase' },
-  statusBox: { flex: 1, minWidth: 140, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 8, padding: 14, alignItems: 'center' },
-  sectionHeader: { color: '#fff', fontSize: 13, fontWeight: '800', textTransform: 'uppercase', marginTop: 20, marginBottom: 8, letterSpacing: 0.5 },
+  kpiLabel: { color: '#64748B', fontSize: 10, marginTop: 4, fontWeight: '700', textTransform: 'uppercase' },
+  statusBox: { flex: 1, minWidth: 140, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, padding: 14, alignItems: 'center' },
+  sectionHeader: { color: '#0F172A', fontSize: 13, fontWeight: '800', textTransform: 'uppercase', marginTop: 20, marginBottom: 8, letterSpacing: 0.5 },
   actionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   addBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#3B82F6', borderRadius: 4 },
-  addBtnText: { color: '#fff', fontSize: 11, fontWeight: '800' },
-  table: { backgroundColor: 'rgba(255,255,255,0.01)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', borderRadius: 8, overflow: 'hidden' },
-  thRow: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.03)', padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
-  th: { color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
-  trRow: { flexDirection: 'row', padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)', alignItems: 'center' },
-  tdText: { color: '#fff', fontSize: 12 },
+  addBtnText: { color: '#FFFFFF', fontSize: 11, fontWeight: '800' },
+  table: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, overflow: 'hidden' },
+  thRow: { flexDirection: 'row', backgroundColor: '#F1F5F9', padding: 10, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  th: { color: '#475569', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  trRow: { flexDirection: 'row', padding: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', alignItems: 'center' },
+  tdText: { color: '#0F172A', fontSize: 12 },
   tdActions: { flexDirection: 'row', gap: 6, justifyContent: 'flex-end', alignItems: 'center' },
-  iconBtn: { width: 26, height: 26, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center' },
-  actionPill: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  actionPillText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  filterPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  iconBtn: { width: 26, height: 26, borderRadius: 4, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  actionPill: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' },
+  actionPillText: { color: '#0F172A', fontSize: 10, fontWeight: '800' },
+  filterPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' },
   filterPillActive: { backgroundColor: '#3B82F6', borderColor: '#3B82F6' },
-  filterPillText: { color: '#fff', fontSize: 9, fontWeight: '800' },
-  mediaCard: { width: 110, backgroundColor: 'rgba(255,255,255,0.02)', borderRightWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 8, borderRadius: 6 },
-  mediaCardImg: { width: 94, height: 68, borderRadius: 4, resizeMode: 'cover' },
-  mediaDeleteBtn: { marginTop: 6, backgroundColor: 'rgba(239,68,68,0.15)', paddingVertical: 3, borderRadius: 3, alignItems: 'center' },
+  filterPillText: { color: '#0F172A', fontSize: 9, fontWeight: '800' },
+  mediaCard: { width: 128, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', padding: 8, borderRadius: 6, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
+  mediaCardImg: { width: 112, height: 80, borderRadius: 4, resizeMode: 'cover' },
+  mediaDeleteBtn: { marginTop: 6, width: '100%', backgroundColor: '#FEE2E2', borderWidth: 1, borderColor: '#FCA5A5', paddingVertical: 4, borderRadius: 3, alignItems: 'center' },
 
   // Modal styles
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 15 },
-  modalCard: { width: '100%', maxWidth: 500, maxHeight: '90%', backgroundColor: '#090D1A', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.01)' },
-  modalTitle: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 15 },
+  modalCard: { width: '100%', maxWidth: 500, maxHeight: '90%', backgroundColor: '#FFFFFF', borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 5 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#F8FAFC' },
+  modalTitle: { color: '#0F172A', fontSize: 13, fontWeight: '800' },
   formContainer: { padding: 14 },
-  label: { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '800', marginBottom: 4, textTransform: 'uppercase' },
-  input: { backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 6, height: 34, color: '#fff', paddingHorizontal: 10, fontSize: 12, marginBottom: 8 },
-  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.01)' },
-  cancelBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.04)' },
+  label: { color: '#475569', fontSize: 10, fontWeight: '800', marginBottom: 4, textTransform: 'uppercase' },
+  input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 6, height: 34, color: '#0F172A', paddingHorizontal: 10, fontSize: 12, marginBottom: 8 },
+  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: '#E2E8F0', backgroundColor: '#F8FAFC' },
+  cancelBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, backgroundColor: '#E2E8F0' },
   saveBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, backgroundColor: '#3B82F6' },
   uploadBtnSmall: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 4, backgroundColor: '#10B981', justifyContent: 'center', alignItems: 'center', height: 34 },
 });

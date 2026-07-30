@@ -1095,6 +1095,9 @@ export default function LiveScreen({ route }: { route?: any }) {
           };
 
           try {
+            let resolveRecordingUpload: any;
+            (window as any).recordingUploadPromise = new Promise((res) => { resolveRecordingUpload = res; });
+
             const recorder = new MediaRecorder(localStreamRef.current, { mimeType: 'video/webm;codecs=vp9,opus' });
             recorder.ondataavailable = (e) => {
               if (e.data && e.data.size > 0) {
@@ -1111,12 +1114,16 @@ export default function LiveScreen({ route }: { route?: any }) {
                   console.error("[Recording] Error converting blob to base64:", err);
                 }
               }
+              if (resolveRecordingUpload) resolveRecordingUpload();
             };
             recorder.start(1000); // chunk every 1 sec
             (window as any).currentStreamRecorder = recorder;
           } catch (recErr) {
             console.warn("[Recording] Failed to start MediaRecorder (retrying with default mimeType):", recErr);
             try {
+              let resolveRecordingUpload: any;
+              (window as any).recordingUploadPromise = new Promise((res) => { resolveRecordingUpload = res; });
+
               const recorder = new MediaRecorder(localStreamRef.current);
               recorder.ondataavailable = (e) => {
                 if (e.data && e.data.size > 0) {
@@ -1133,6 +1140,7 @@ export default function LiveScreen({ route }: { route?: any }) {
                     console.error("[Recording] Error converting blob to base64:", err);
                   }
                 }
+                if (resolveRecordingUpload) resolveRecordingUpload();
               };
               recorder.start(1000);
               (window as any).currentStreamRecorder = recorder;
@@ -1271,10 +1279,21 @@ export default function LiveScreen({ route }: { route?: any }) {
       }
       (window as any).currentStreamRecorder = null;
     }
+
+    // Await completion of local recording upload before stopping stream on backend
+    if ((window as any).recordingUploadPromise) {
+      try {
+        console.log("[Recording] Waiting for live stream recording file upload to complete...");
+        await Promise.race([
+          (window as any).recordingUploadPromise,
+          new Promise((r) => setTimeout(r, 15000))
+        ]);
+        console.log("[Recording] Recording upload finished. Finalizing stream on server...");
+      } catch (e) {}
+      (window as any).recordingUploadPromise = null;
+    }
+
     stopTracks();
-    
-    // Give browser MediaRecorder onstop callback time to start recording upload
-    await new Promise((r) => setTimeout(r, 1200));
 
     try {
       await api.stopStream(myStream.id);
@@ -2801,37 +2820,96 @@ export default function LiveScreen({ route }: { route?: any }) {
               ))
             ) : isLoadingStreams ? (
               <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
-            ) : userStreams.length === 0 ? (
-              <View style={styles.emptyStreams}>
-                <Text style={styles.emptyText}>No user live broadcasts or recordings right now.</Text>
-                <Text style={styles.emptySub}>Tap "Go Live" at the top to start your live broadcast room!</Text>
-              </View>
-            ) : (
-              userStreams.map((s) => (
-                <HoverPressable
-                  key={s.id}
-                  style={styles.epgRow}
-                  onPress={() => {
-                    if (s.isLive) {
-                      navigation.navigate('Live', { streamId: s.id });
-                    } else {
-                      navigation.navigate('RecordedLivePlayer', { stream: s });
-                    }
-                  }}
-                >
-                  <View style={[styles.epgIcon, { backgroundColor: colors.surfaceAlt }]}>
-                    <Text style={styles.epgIconText}>👤</Text>
-                  </View>
-                  <View style={styles.epgDetails}>
-                    <Text style={styles.epgName}>
-                      {s.profile_name} {s.isLive ? 'is Live' : '(Recorded)'}
+            ) : (() => {
+              const liveList = userStreams.filter(s => s.isLive || s.stream_status === 'LIVE');
+              const recordedList = userStreams.filter(s => !s.isLive && s.stream_status !== 'LIVE');
+
+              return (
+                <View style={{ gap: 16 }}>
+                  {/* SECTION 1: ACTIVE LIVE STREAMS */}
+                  <View style={{ marginBottom: 8 }}>
+                    <Text style={{ color: colors.primary, fontSize: 13, fontWeight: '900', letterSpacing: 0.8, marginBottom: 8, textTransform: 'uppercase' }}>
+                      🔴 Active Live Broadcasts ({liveList.length})
                     </Text>
-                    <Text style={styles.epgShow}>"{s.title}"{s.location ? `  ·  📍 ${s.location}` : ''}</Text>
+                    {liveList.length === 0 ? (
+                      <View style={[styles.epgRow, { backgroundColor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }]}>
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
+                          No users are currently broadcasting live. Click "Go Live" at top right to start a live stream!
+                        </Text>
+                      </View>
+                    ) : (
+                      liveList.map((s) => (
+                        <HoverPressable
+                          key={s.id}
+                          style={[styles.epgRow, { borderColor: '#EF4444', backgroundColor: 'rgba(239,68,68,0.05)' }]}
+                          onPress={() => setSelectedStream(s)}
+                        >
+                          <View style={[styles.epgIcon, { backgroundColor: '#EF4444' }]}>
+                            <Text style={styles.epgIconText}>📡</Text>
+                          </View>
+                          <View style={styles.epgDetails}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={[styles.epgName, { color: '#EF4444', fontWeight: '900' }]}>
+                                {s.profile_name || 'Broadcaster'}
+                              </Text>
+                              <View style={{ backgroundColor: '#EF4444', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>🔴 LIVE NOW</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.epgShow}>"{s.title}"{s.location ? `  ·  📍 ${s.location}` : ''}</Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                            <Text style={styles.epgBadge}>{s.category || 'General'}</Text>
+                            <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '700' }}>👁️ {s.viewers || 1} watching</Text>
+                          </View>
+                        </HoverPressable>
+                      ))
+                    )}
                   </View>
-                  <Text style={styles.epgBadge}>{s.category}</Text>
-                </HoverPressable>
-              ))
-            )}
+
+                  {/* SECTION 2: INDIVIDUAL SAVED RECORDINGS */}
+                  <View>
+                    <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: '900', letterSpacing: 0.8, marginBottom: 8, textTransform: 'uppercase' }}>
+                      📼 Saved Recorded Broadcasts ({recordedList.length})
+                    </Text>
+                    {recordedList.length === 0 ? (
+                      <View style={[styles.epgRow, { backgroundColor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }]}>
+                        <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
+                          No recorded broadcasts saved yet. Ended streams are automatically saved here as individual video recordings!
+                        </Text>
+                      </View>
+                    ) : (
+                      recordedList.map((s) => (
+                        <HoverPressable
+                          key={s.id}
+                          style={styles.epgRow}
+                          onPress={() => navigation.navigate('RecordedLivePlayer', { stream: s })}
+                        >
+                          <View style={[styles.epgIcon, { backgroundColor: '#1E293B' }]}>
+                            <Text style={styles.epgIconText}>📼</Text>
+                          </View>
+                          <View style={styles.epgDetails}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={styles.epgName}>
+                                {s.profile_name || 'Creator'}
+                              </Text>
+                              <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: '700' }}>RECORDED</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.epgShow}>"{s.title}"{s.location ? `  ·  📍 ${s.location}` : ''}</Text>
+                          </View>
+                          <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                            <Text style={styles.epgBadge}>{s.category || 'General'}</Text>
+                            <Text style={{ color: '#3B82F6', fontSize: 11, fontWeight: '700' }}>▶ Play Video</Text>
+                          </View>
+                        </HoverPressable>
+                      ))
+                    )}
+                  </View>
+                </View>
+              );
+            })()}
           </ScrollView>
         </View>
       )}

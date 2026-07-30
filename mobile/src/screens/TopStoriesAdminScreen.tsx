@@ -47,7 +47,19 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [headline, setHeadline] = useState('');
   const [headlineError, setHeadlineError] = useState(false);
+
+  const autoDetectCategory = (text: string) => {
+    const lower = text.toLowerCase();
+    if (/cricket|football|sports|match|stadium|ipl|tennis|badminton|olympics|trophy|champion|messi|ronaldo|kohli|rohit|dhoni|wicket|runs|goal|score/.test(lower)) return 'Sports';
+    if (/temple|devotional|god|pooja|ritual|bhagavad|gita|kashi|prashad|darshan|sloka|mantra|divine|spiritual/.test(lower)) return 'Devotional';
+    if (/election|modi|minister|parliament|governance|politics|political|party|vote|bjp|congress/.test(lower)) return 'Politics';
+    if (/market|stock|inflation|sensex|nifty|business|economy|billion|rupees|dollar|revenue/.test(lower)) return 'Business';
+    if (/ai|tech|chip|technology|quantum|software|apple|google|phone|cyber|data/.test(lower)) return 'Technology';
+    if (/movie|cinema|actor|film|box office|trailer|star|hollywood|tollywood|bollywood/.test(lower)) return 'Entertainment';
+    return null;
+  };
   const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const formScrollViewRef = useRef<ScrollView>(null);
   const [description, setDescription] = useState('');
   const [article, setArticle] = useState('');
@@ -86,6 +98,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
   // Bulk Upload Queue State
   const [bulkQueue, setBulkQueue] = useState<{ id: string; filename: string; base64: string; progress: number; status: 'pending' | 'uploading' | 'completed' | 'failed' }[]>([]);
   const [uploadingBulk, setUploadingBulk] = useState(false);
+  const [bulkCategory, setBulkCategory] = useState<string>('Sports');
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Bulk Import File State
@@ -115,88 +128,94 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
       if (typeFilter === 'top_story') query += '&isTopStory=1';
       if (typeFilter === 'trending') query += '&isTrending=1';
 
-      const res = await api.request<{ data: any[] }>(`/api/admin/top-stories${query}`);
-      if (res && res.data) {
+      let res = await api.request<{ data: any[] }>(`/api/admin/top-stories${query}`);
+      if (!res || !res.data || !Array.isArray(res.data)) {
+        res = await api.request<{ data: any[] }>('/api/admin/top-stories/public');
+      }
+      if (res && res.data && Array.isArray(res.data)) {
         setStories(res.data);
       }
     } catch (err) {
       console.error('Failed to load top stories admin data:', err);
+      try {
+        const pubRes = await api.request<{ data: any[] }>('/api/admin/top-stories/public');
+        if (pubRes && pubRes.data) setStories(pubRes.data);
+      } catch (e) {}
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePickCoverImage = async () => {
+  const uploadComputerFile = async (mimeType: string, onUploaded: (url: string, name: string, base64: string) => void) => {
     try {
-      const result = await DocumentPicker.getDocumentAsync({ type: 'image/*', copyToCacheDirectory: true });
+      const result = await DocumentPicker.getDocumentAsync({ type: mimeType, copyToCacheDirectory: true });
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        if (Platform.OS === 'web') {
-          const file = asset.file;
-          if (file) {
-            if (file.size > 20 * 1024 * 1024) {
-              Alert.alert('File size exceeds 20MB limit');
-              return;
-            }
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const base64 = reader.result?.toString().split(',')[1] || '';
-              setImageData(base64);
-              setImagePreview(reader.result?.toString() || '');
-            };
-            reader.readAsDataURL(file);
+        const processBase64 = async (base64: string) => {
+          try {
+            const res = await api.request<any>('/api/admin/media-library/upload', {
+              method: 'POST',
+              body: JSON.stringify({ filename: `${Date.now()}_${asset.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`, base64Data: base64 })
+            }).catch(() => null);
+            onUploaded(res?.url || '', asset.name, base64);
+          } catch (e) {
+            onUploaded('', asset.name, base64);
           }
+        };
+
+        if (Platform.OS === 'web' && asset.file) {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = reader.result?.toString().split(',')[1] || '';
+            processBase64(base64);
+          };
+          reader.readAsDataURL(asset.file);
+        } else {
+          const resp = await fetch(asset.uri);
+          const blob = await resp.blob();
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            const base64 = reader.result?.toString().split(',')[1] || '';
+            processBase64(base64);
+          };
+          reader.readAsDataURL(blob);
         }
       }
     } catch (e) {
-      console.error('Failed to pick image:', e);
+      console.error('Failed to pick file:', e);
     }
+  };
+
+  const handlePickCoverImage = async () => {
+    uploadComputerFile('image/*', (url, name, base64) => {
+      setImageData(base64);
+      setImagePreview(url ? (url.startsWith('http') ? url : `${API_URL}${url}`) : `data:image/png;base64,${base64}`);
+
+      // Auto-generate clean headline from image filename if empty
+      if (!headline.trim() && name) {
+        const cleanHeadline = name.replace(/\.[^/.]+$/, "").split(/[-_]+/).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        setHeadline(cleanHeadline);
+        setHeadlineError(false);
+        const detected = autoDetectCategory(cleanHeadline);
+        if (detected && (category === 'General' || !category)) {
+          setCategory(detected);
+        }
+      }
+    });
   };
 
   const handlePickVideo = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({ type: 'video/*', copyToCacheDirectory: true });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        setVideoFilename(asset.name);
-        if (Platform.OS === 'web') {
-          const file = asset.file;
-          if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const base64 = reader.result?.toString().split(',')[1] || '';
-              setVideoData(base64);
-            };
-            reader.readAsDataURL(file);
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Failed to pick video:', e);
-    }
+    uploadComputerFile('video/*', (url, name, base64) => {
+      setVideoFilename(name);
+      setVideoData(base64);
+    });
   };
 
   const handlePickGalleryImage = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({ type: 'image/*', copyToCacheDirectory: true });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        if (Platform.OS === 'web') {
-          const file = asset.file;
-          if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const base64 = reader.result?.toString().split(',')[1] || '';
-              setGalleryData(prev => [...prev, base64]);
-              setGalleryPreviews(prev => [...prev, reader.result?.toString() || '']);
-            };
-            reader.readAsDataURL(file);
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Failed to pick gallery image:', e);
-    }
+    uploadComputerFile('image/*', (url, name, base64) => {
+      setGalleryData(prev => [...prev, base64]);
+      setGalleryPreviews(prev => [...prev, url ? (url.startsWith('http') ? url : `${API_URL}${url}`) : `data:image/png;base64,${base64}`]);
+    });
   };
 
   const handleSave = async () => {
@@ -205,26 +224,28 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
 
     if (!headline.trim()) {
       setHeadlineError(true);
+      const msg = 'Headline is required! Please enter a title for this card above.';
+      setFormError(msg);
       formScrollViewRef.current?.scrollTo({ y: 0, animated: true });
       return;
     }
 
     const payload = {
-      headline,
-      description,
-      article,
-      category,
-      subcategory,
-      language,
-      author: author || user?.displayName,
-      source,
-      tags,
-      readingTime,
-      location,
+      headline: headline.trim(),
+      description: description.trim(),
+      article: article.trim() || description.trim(),
+      category: category || 'General',
+      subcategory: subcategory || undefined,
+      language: language || 'English',
+      author: author || user?.displayName || 'NEXUS Network',
+      source: source || 'NEXUS Network',
+      tags: tags || undefined,
+      readingTime: readingTime || '5',
+      location: location || undefined,
       publishDate: publishDate || new Date().toISOString(),
-      seoTitle,
-      seoDescription,
-      seoKeywords,
+      seoTitle: seoTitle || undefined,
+      seoDescription: seoDescription || undefined,
+      seoKeywords: seoKeywords || undefined,
       isBreaking,
       isTopStory,
       isTrending,
@@ -235,6 +256,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
       galleryImagesData: galleryData.length > 0 ? galleryData : undefined
     };
 
+    setSaving(true);
     try {
       let res;
       if (editingId) {
@@ -249,14 +271,25 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
         });
       }
 
-      if (res) {
-        setShowFormModal(false);
-        resetForm();
-        loadData();
+      setShowFormModal(false);
+      resetForm();
+      loadData();
+      if (Platform.OS === 'web') {
+        window.alert(`Success! Top Story card ${editingId ? 'updated' : 'created'} successfully.`);
+      } else {
+        Alert.alert('Success', `Top Story card ${editingId ? 'updated' : 'created'} successfully.`);
       }
     } catch (err: any) {
-      setFormError(err.message || 'An unknown error occurred while saving.');
+      const msg = err?.message || 'An unknown error occurred while saving.';
+      setFormError(msg);
+      if (Platform.OS === 'web') {
+        window.alert(`Save Error: ${msg}`);
+      } else {
+        Alert.alert('Save Error', msg);
+      }
       formScrollViewRef.current?.scrollTo({ y: 0, animated: true });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -514,7 +547,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
       try {
         const res = await api.request<any>('/api/admin/top-stories/bulk-upload', {
           method: 'POST',
-          body: JSON.stringify({ images: [{ filename: item.filename, base64: item.base64 }] })
+          body: JSON.stringify({ images: [{ filename: item.filename, base64: item.base64 }], category: bulkCategory })
         });
 
         if (res && res.success) {
@@ -650,8 +683,8 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
 
       {/* Header bar */}
       {isNested ? (
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
-          <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>Manage Top Stories</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#E2E8F0' }}>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: '#0F172A' }}>Manage Top Stories</Text>
           <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
             <Pressable style={styles.bulkBtn} onPress={() => setShowBulkImportModal(true)}>
               <Text style={styles.bulkBtnText}>📋 Import CSV/JSON</Text>
@@ -693,7 +726,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
       <View style={styles.filterBar}>
         <TextInput
           placeholder="Search headline, author, category, tags..."
-          placeholderTextColor="rgba(255,255,255,0.4)"
+          placeholderTextColor="#64748B"
           value={search}
           onChangeText={setSearch}
           style={styles.searchInput}
@@ -785,18 +818,18 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
                     {/* 3. Category */}
                     <View style={[styles.td, { flex: 1 }]}>
                       <Text style={styles.categoryText}>{story.category}</Text>
-                      {story.subcategory && <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{story.subcategory}</Text>}
+                      {story.subcategory && <Text style={{ fontSize: 10, color: '#64748B' }}>{story.subcategory}</Text>}
                     </View>
 
                     {/* 4. Language */}
                     <View style={[styles.td, { flex: 0.8 }]}>
-                      <Text style={{ color: '#fff', fontSize: 12 }}>{story.language || 'English'}</Text>
+                      <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '600' }}>{story.language || 'English'}</Text>
                     </View>
 
                     {/* 5. Author */}
                     <View style={[styles.td, { flex: 1 }]}>
-                      <Text style={{ color: '#fff', fontSize: 12 }} numberOfLines={1}>{story.author || 'NEXUS Network'}</Text>
-                      <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.3)' }}>{story.source || 'NEXUS'}</Text>
+                      <Text style={{ color: '#0F172A', fontSize: 12, fontWeight: '600' }} numberOfLines={1}>{story.author || 'NEXUS Network'}</Text>
+                      <Text style={{ fontSize: 9, color: '#64748B' }}>{story.source || 'NEXUS'}</Text>
                     </View>
 
                     {/* 6. Status */}
@@ -813,12 +846,12 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
 
                     {/* 8. Created Date */}
                     <View style={[styles.td, { flex: 1.2 }]}>
-                      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>{formatDate(story.created_at)}</Text>
+                      <Text style={{ color: '#475569', fontSize: 11, fontWeight: '600' }}>{formatDate(story.created_at)}</Text>
                     </View>
 
                     {/* 9. Last Updated */}
                     <View style={[styles.td, { flex: 1.2 }]}>
-                      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>{formatDate(story.updated_at)}</Text>
+                      <Text style={{ color: '#475569', fontSize: 11, fontWeight: '600' }}>{formatDate(story.updated_at)}</Text>
                     </View>
 
                     {/* 10. Actions Bar */}
@@ -859,7 +892,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{editingId ? 'Edit Top Story Details' : 'Create New Top Story Card'}</Text>
-              <Pressable onPress={() => setShowFormModal(false)}><Text style={{ color: '#fff', fontSize: 20 }}>✕</Text></Pressable>
+              <Pressable onPress={() => setShowFormModal(false)} style={{ padding: 4 }}><Text style={{ color: '#000', fontSize: 22, fontWeight: '900' }}>✕</Text></Pressable>
             </View>
             <ScrollView ref={formScrollViewRef} contentContainerStyle={styles.formContainer}>
               {formError && (
@@ -872,8 +905,15 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
               <TextInput
                 style={[styles.input, headlineError && { borderColor: '#EF4444', backgroundColor: 'rgba(239, 68, 68, 0.05)' }]}
                 value={headline}
-                onChangeText={(txt) => { setHeadline(txt); setHeadlineError(false); }}
-                placeholder="Enter premium headline"
+                onChangeText={(txt) => {
+                  setHeadline(txt);
+                  setHeadlineError(false);
+                  const detected = autoDetectCategory(txt);
+                  if (detected && (category === 'General' || !category)) {
+                    setCategory(detected);
+                  }
+                }}
+                placeholder="Enter headline (e.g. Cricket Championship Victory)"
                 placeholderTextColor="rgba(255,255,255,0.2)"
               />
               {headlineError && (
@@ -888,14 +928,27 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
               <Text style={styles.label}>Full Article Text</Text>
               <TextInput style={[styles.input, { height: 110 }]} multiline value={article} onChangeText={setArticle} placeholder="Full body article text (markdown supported)" placeholderTextColor="rgba(255,255,255,0.2)" />
 
+              <Text style={styles.label}>Category * (Auto-detected or Select Below)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 8 }}>
+                {['Sports', 'Politics', 'Business', 'Technology', 'Entertainment', 'Devotional', 'General', 'Health', 'Education', 'World', 'Weather'].map(cat => (
+                  <Pressable
+                    key={cat}
+                    style={[styles.filterPill, category === cat && styles.filterPillActive, { marginRight: 6 }]}
+                    onPress={() => setCategory(cat)}
+                  >
+                    <Text style={[styles.filterPillText, category === cat && { color: '#fff', fontWeight: '800' }]}>{cat}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.label}>Category</Text>
-                  <TextInput style={styles.input} value={category} onChangeText={setCategory} placeholder="e.g. Devotional, Politics" placeholderTextColor="rgba(255,255,255,0.2)" />
+                  <Text style={styles.label}>Category Name</Text>
+                  <TextInput style={styles.input} value={category} onChangeText={setCategory} placeholder="e.g. Sports, Devotional" placeholderTextColor="rgba(255,255,255,0.2)" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.label}>Subcategory</Text>
-                  <TextInput style={styles.input} value={subcategory} onChangeText={setSubcategory} placeholder="e.g. Temple News" placeholderTextColor="rgba(255,255,255,0.2)" />
+                  <TextInput style={styles.input} value={subcategory} onChangeText={setSubcategory} placeholder="e.g. Cricket, Temple News" placeholderTextColor="rgba(255,255,255,0.2)" />
                 </View>
               </View>
 
@@ -994,8 +1047,12 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
               <Pressable style={styles.cancelBtn} onPress={() => setShowFormModal(false)}>
                 <Text style={{ color: '#fff' }}>Cancel</Text>
               </Pressable>
-              <Pressable style={styles.saveBtn} onPress={handleSave}>
-                <Text style={{ color: '#fff', fontWeight: '800' }}>Save Changes</Text>
+              <Pressable style={[styles.saveBtn, saving && { opacity: 0.6 }]} disabled={saving} onPress={handleSave}>
+                {saving ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={{ color: '#fff', fontWeight: '800' }}>Save Changes</Text>
+                )}
               </Pressable>
             </View>
           </View>
@@ -1007,14 +1064,27 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { maxHeight: '80%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Bulk Image Uploader (Auto Card Creation)</Text>
-              <Pressable onPress={() => setShowBulkUploadModal(false)}><Text style={{ color: '#fff', fontSize: 20 }}>✕</Text></Pressable>
+              <Text style={styles.modalTitle}>Bulk Upload Story Images</Text>
+              <Pressable onPress={() => setShowBulkUploadModal(false)} style={{ padding: 4 }}><Text style={{ color: '#000', fontSize: 22, fontWeight: '900' }}>✕</Text></Pressable>
             </View>
             <View style={{ padding: 16, flex: 1 }}>
+              <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800', marginBottom: 6 }}>Target Category for Uploaded News *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 12 }}>
+                {['Sports', 'Politics', 'Business', 'Technology', 'Entertainment', 'Devotional', 'General', 'Weather', 'World'].map(cat => (
+                  <Pressable
+                    key={cat}
+                    style={[styles.filterPill, bulkCategory === cat && styles.filterPillActive, { marginRight: 6 }]}
+                    onPress={() => setBulkCategory(cat)}
+                  >
+                    <Text style={[styles.filterPillText, bulkCategory === cat && { color: '#fff', fontWeight: '800' }]}>{cat}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
               <Pressable style={styles.bulkUploadDropzone} onPress={handleSelectBulkImages}>
                 <Text style={{ fontSize: 32 }}>📁</Text>
-                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700', marginTop: 8 }}>Choose 10, 20, 50, or 100 images</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>Files will be auto-optimized & resized in background queue</Text>
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700', marginTop: 8 }}>Choose images to upload into "{bulkCategory}" category</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 4 }}>Files will be auto-stored under {bulkCategory} section</Text>
               </Pressable>
 
               {bulkQueue.length > 0 && (
@@ -1071,8 +1141,8 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { maxHeight: '70%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Import CSV / JSON / Excel Articles</Text>
-              <Pressable onPress={() => setShowBulkImportModal(false)}><Text style={{ color: '#fff', fontSize: 20 }}>✕</Text></Pressable>
+              <Text style={styles.modalTitle}>Bulk Import Dataset (CSV / JSON)</Text>
+              <Pressable onPress={() => setShowBulkImportModal(false)} style={{ padding: 4 }}><Text style={{ color: '#000', fontSize: 22, fontWeight: '900' }}>✕</Text></Pressable>
             </View>
             <View style={{ padding: 16, flex: 1 }}>
               <Pressable style={styles.bulkUploadDropzone} onPress={handlePickImportFile}>
@@ -1156,7 +1226,7 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
           <View style={[styles.modalCard, { maxWidth: 500 }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Engagement & Analytics</Text>
-              <Pressable onPress={() => setShowAnalyticsModal(false)}><Text style={{ color: '#fff', fontSize: 20 }}>✕</Text></Pressable>
+              <Pressable onPress={() => setShowAnalyticsModal(false)} style={{ padding: 4 }}><Text style={{ color: '#000', fontSize: 22, fontWeight: '900' }}>✕</Text></Pressable>
             </View>
             <ScrollView contentContainerStyle={{ padding: 20 }}>
               {selectedStory && (
@@ -1209,28 +1279,28 @@ export default function TopStoriesAdminScreen({ navigation, isNested = false }: 
 }
 
 const styles = StyleSheet.create({
-  fill: { flex: 1 },
+  fill: { flex: 1, backgroundColor: '#F8FAFC' },
   adminHeader: {
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#090D1A',
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  breadcrumbs: { color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  breadcrumbs: { color: '#64748B', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   backBtn: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
   adminTitle: {
-    color: '#fff',
+    color: '#0F172A',
     fontSize: 18,
     fontWeight: '800',
     fontFamily: 'Outfit',
@@ -1245,25 +1315,25 @@ const styles = StyleSheet.create({
   bulkBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#F1F5F9',
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#E2E8F0',
   },
-  bulkBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  bulkBtnText: { color: '#0F172A', fontSize: 12, fontWeight: '700' },
   filterBar: {
     padding: 16,
-    backgroundColor: 'rgba(9,13,26,0.6)',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: '#E2E8F0',
   },
   searchInput: {
     height: 38,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: '#CBD5E1',
     borderRadius: 6,
-    color: '#fff',
+    color: '#0F172A',
     paddingHorizontal: 12,
     fontSize: 13,
     marginBottom: 8,
@@ -1272,56 +1342,56 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#F1F5F9',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#E2E8F0',
   },
   filterPillActive: {
     backgroundColor: '#3B82F6',
     borderColor: '#3B82F6',
   },
-  filterPillText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  filterPillText: { color: '#0F172A', fontSize: 10, fontWeight: '700' },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   contentScroll: { flex: 1, padding: 16 },
   emptyContainer: { padding: 48, alignItems: 'center' },
   table: {
-    backgroundColor: 'rgba(255, 255, 255, 0.01)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    backgroundColor: '#F1F5F9',
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: '#E2E8F0',
   },
-  th: { color: 'rgba(255,255,255,0.4)', fontWeight: '800', fontSize: 10, textTransform: 'uppercase' },
+  th: { color: '#475569', fontWeight: '800', fontSize: 10, textTransform: 'uppercase' },
   tr: {
     flexDirection: 'row',
     paddingVertical: 10,
     paddingHorizontal: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.03)',
+    borderBottomColor: '#F1F5F9',
     alignItems: 'center',
   },
   td: { justifyContent: 'center' },
   previewImage: { width: 44, height: 30, borderRadius: 3, resizeMode: 'cover' },
-  fallbackPreview: { width: 44, height: 30, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center' },
-  headlineText: { color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 16 },
+  fallbackPreview: { width: 44, height: 30, borderRadius: 3, backgroundColor: '#F1F5F9', justifyContent: 'center', alignItems: 'center' },
+  headlineText: { color: '#0F172A', fontSize: 12, fontWeight: '700', lineHeight: 16 },
   categoryText: { color: '#3B82F6', fontSize: 10, fontWeight: '800' },
   statusBadge: { paddingHorizontal: 5, paddingVertical: 2, borderRadius: 3, alignSelf: 'flex-start' },
-  statusPub: { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.25)' },
-  statusDr: { backgroundColor: 'rgba(255, 255, 255, 0.05)', borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.1)' },
-  statusText: { fontSize: 8, color: '#fff', fontWeight: '900' },
+  statusPub: { backgroundColor: 'rgba(16, 185, 129, 0.15)', borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)' },
+  statusDr: { backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#CBD5E1' },
+  statusText: { fontSize: 8, color: '#047857', fontWeight: '900' },
   arrowBtn: {
     width: 16,
     height: 16,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1329,26 +1399,28 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   // Modal styling
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 15 },
-  modalCard: { width: '100%', maxWidth: 580, maxHeight: '90%', backgroundColor: '#090D1A', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.01)' },
-  modalTitle: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.6)', justifyContent: 'center', alignItems: 'center', padding: 15 },
+  modalCard: { width: '100%', maxWidth: 580, maxHeight: '90%', backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#CBD5E1', overflow: 'hidden' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#E2E8F0', backgroundColor: '#F8FAFC' },
+  modalTitle: { color: '#0F172A', fontSize: 14, fontWeight: '800' },
   formContainer: { padding: 14 },
-  label: { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: '800', marginBottom: 4, textTransform: 'uppercase' },
-  input: { backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 6, height: 36, color: '#fff', paddingHorizontal: 10, fontSize: 12, marginBottom: 10 },
-  miniToggle: { flex: 1, minWidth: 110, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 8, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)', borderRadius: 6 },
-  toggleLabel: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  uploadArea: { height: 120, borderRadius: 6, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.01)', justifyContent: 'center', alignItems: 'center', marginBottom: 10, overflow: 'hidden' },
+  label: { color: '#475569', fontSize: 10, fontWeight: '800', marginBottom: 4, textTransform: 'uppercase' },
+  input: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 6, height: 36, color: '#0F172A', paddingHorizontal: 10, fontSize: 12, marginBottom: 10 },
+  miniToggle: { flex: 1, minWidth: 110, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 8, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 6 },
+  toggleLabel: { color: '#0F172A', fontSize: 12, fontWeight: '700' },
+  uploadArea: { height: 120, borderRadius: 6, borderStyle: 'dashed', borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center', marginBottom: 10, overflow: 'hidden' },
   galleryPreviewThumb: { width: 44, height: 44, borderRadius: 4, marginRight: 6 },
-  addGalleryBtn: { width: 44, height: 44, borderRadius: 4, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', backgroundColor: 'rgba(255,255,255,0.01)', justifyContent: 'center', alignItems: 'center' },
-  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, padding: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.01)' },
-  cancelBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: 'rgba(255,255,255,0.04)' },
+  addGalleryBtn: { width: 44, height: 44, borderRadius: 4, borderStyle: 'dashed', borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
+  modalFooter: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, padding: 14, borderTopWidth: 1, borderTopColor: '#E2E8F0', backgroundColor: '#F8FAFC' },
+  cancelBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#E2E8F0' },
   saveBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, backgroundColor: '#3B82F6' },
   bulkUploadDropzone: { height: 130, borderRadius: 8, borderStyle: 'dashed', borderWidth: 2, borderColor: 'rgba(59, 130, 246, 0.3)', backgroundColor: 'rgba(59, 130, 246, 0.02)', justifyContent: 'center', alignItems: 'center' },
   queueItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.03)' },

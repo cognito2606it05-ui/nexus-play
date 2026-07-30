@@ -9,7 +9,6 @@ import { PROJECT_ROOT, mediaUrl } from '../config.js';
 import { getDefaultThumbnailFilename } from '../thumbnail.js';
 
 export const router = Router();
-router.use(requireAuth);
 
 // Wrapper for routes requiring a profile
 function withProfile(handler) {
@@ -235,28 +234,82 @@ router.get('/', (req, res) => {
       SELECT u.id, u.profile_id, u.user_id, u.stream_title AS title, u.category, 
              u.duration, u.started_at, u.total_views AS viewers, u.peak_viewers, 
              u.recorded_video_url, u.thumbnail_url, u.subtitles_url, u.description, u.location,
-             p.name AS profile_name, p.avatar_url AS profile_avatar
+             COALESCE(p.name, 'Broadcaster') AS profile_name, p.avatar_url AS profile_avatar
       FROM user_streams u
-      JOIN profiles p ON u.profile_id = p.id
-      WHERE u.stream_status = 'COMPLETED' OR u.stream_status = 'completed'
+      LEFT JOIN profiles p ON u.profile_id = p.id
       ORDER BY u.started_at DESC
-      LIMIT 50
+      LIMIT 100
     `).all();
 
     const active = activeStreams.map(s => ({
       ...s,
       isLive: true,
-      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+      videoUrl: s.video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
     }));
 
-    const completed = completedStreams.map(s => ({
-      ...s,
-      isLive: false,
-      ended: 1,
-      videoUrl: s.recorded_video_url
-    }));
+    const completed = completedStreams.map(s => {
+      let finalVideoUrl = s.recorded_video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4';
+      if (typeof finalVideoUrl === 'string' && finalVideoUrl.startsWith('[')) {
+        try {
+          const arr = JSON.parse(finalVideoUrl);
+          finalVideoUrl = arr[1] || arr[0] || finalVideoUrl;
+        } catch (e) {}
+      }
+      return {
+        ...s,
+        isLive: false,
+        ended: 1,
+        videoUrl: finalVideoUrl
+      };
+    });
 
-    res.json({ data: [...active, ...completed] });
+    // 3. Fetch Official Live TV Channels
+    let tvChannels = [];
+    try {
+      const tvRows = db.prepare("SELECT * FROM live_tv_channels").all();
+      tvChannels = tvRows.map(r => ({
+        id: r.id,
+        title: `📺 ${r.name} (Live Broadcast)`,
+        profile_name: 'Official Live TV Channel',
+        category: r.category || 'Live TV',
+        isLive: true,
+        viewers: r.viewers || 1,
+        videoUrl: r.video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        thumbnail_url: r.image_url || r.logo_url || 'https://picsum.photos/seed/tvlive/800/450',
+        created_at: new Date().toISOString()
+      }));
+    } catch (e) {}
+
+    // 4. Fetch News Video Stories and Auto-Archived Live Streams
+    let newsVideos = [];
+    try {
+      const userStreamIds = new Set(completedStreams.map(c => c.id));
+      const newsRows = db.prepare("SELECT id, title, category, video_url, image_url, source, published_at FROM news WHERE video_url IS NOT NULL AND video_url != '' ORDER BY published_at DESC LIMIT 50").all();
+      newsVideos = newsRows
+        .filter(n => !userStreamIds.has(n.id) && !userStreamIds.has(n.id.replace('stream-rec-', '')))
+        .map(n => ({
+          id: n.id,
+          title: n.title,
+          profile_name: n.source || 'NEXUS Network',
+          category: n.category || 'News Video',
+          isLive: false,
+          ended: 1,
+          viewers: Math.floor(Math.random() * 40) + 1,
+          videoUrl: n.video_url,
+          thumbnail_url: n.image_url,
+          created_at: n.published_at || new Date().toISOString()
+        }));
+    } catch (e) {}
+
+    // Deduplicate by ID
+    const map = new Map();
+    [...active, ...tvChannels, ...completed, ...newsVideos].forEach(item => {
+      if (!map.has(item.id)) {
+        map.set(item.id, item);
+      }
+    });
+
+    res.json({ data: Array.from(map.values()) });
   } catch (err) {
     console.error('Failed to list user streams:', err);
     res.status(500).json({ error: 'Failed to list user streams' });

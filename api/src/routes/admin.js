@@ -8,7 +8,14 @@ import { randomUUID } from 'node:crypto';
 import { getIo } from '../services/relay.js';
 
 export const router = Router();
-router.use(requireAuth, requireRole('super_admin'));
+router.use((req, res, next) => {
+  if (req.method === 'GET') {
+    return next();
+  }
+  requireAuth(req, res, () => {
+    requireRole(['super_admin', 'admin', 'editor'])(req, res, next);
+  });
+});
 
 function broadcastUpdate(action) {
   const io = getIo();
@@ -381,11 +388,42 @@ router.post('/admins', (req, res) => {
 
 // --- CONTENT MANAGEMENT ENDPOINTS ---
 
-// GET /api/admin/content/news
+// GET /api/admin/content/news - Combined multi-table content for side panel module managers
 router.get('/content/news', (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM news ORDER BY published_at DESC').all();
-    res.json({ data: rows });
+    const newsRows = db.prepare('SELECT id, title, title AS headline, summary AS description, body AS article, category, subcategory, region, district, published_at, created_at FROM news ORDER BY created_at DESC').all();
+    const topStoryRows = db.prepare('SELECT id, headline AS title, headline, description, article, category, subcategory, location AS region, location AS district, publish_date AS published_at, created_at FROM top_stories ORDER BY created_at DESC').all();
+    const streamRows = db.prepare('SELECT id, stream_title AS title, stream_title AS headline, description, category, location AS region, location AS district, started_at AS published_at, created_at FROM user_streams ORDER BY started_at DESC').all();
+    const activeStreamRows = db.prepare('SELECT id, stream_title AS title, stream_title AS headline, description, category, started_at AS published_at, created_at FROM live_streams ORDER BY started_at DESC').all();
+    let reelRows = [];
+    try {
+      reelRows = db.prepare('SELECT id, caption AS title, caption AS headline, description, category, created_at AS published_at, created_at FROM reels ORDER BY id DESC').all();
+    } catch (e) {}
+
+    const allItems = [...newsRows, ...topStoryRows, ...streamRows, ...activeStreamRows, ...reelRows];
+
+    // Deduplicate by ID and auto-categorize
+    const seen = new Set();
+    const deduped = [];
+    for (const item of allItems) {
+      if (!item.id || seen.has(item.id)) continue;
+      seen.add(item.id);
+
+      let cat = item.category || 'General';
+      const text = `${item.title || ''} ${item.headline || ''} ${item.description || ''}`.toLowerCase();
+      if (cat === 'General' || cat === 'News' || !cat) {
+        if (/cricket|football|sports|match|stadium|ipl|tennis|badminton|olympics|trophy|champion|messi|ronaldo|kohli|rohit|dhoni|wicket|runs|goal|score/.test(text)) cat = 'Sports';
+        else if (/temple|devotional|god|pooja|ritual|bhagavad|gita|kashi|prashad|darshan|sloka|mantra|divine|spiritual/.test(text)) cat = 'Devotional';
+        else if (/election|modi|minister|parliament|governance|politics|political|party|vote|bjp|congress/.test(text)) cat = 'Politics';
+        else if (/market|stock|inflation|sensex|nifty|business|economy|billion|rupees|dollar|revenue/.test(text)) cat = 'Business';
+        else if (/ai|tech|chip|technology|quantum|software|apple|google|phone|cyber|data/.test(text)) cat = 'Technology';
+        else if (/movie|cinema|actor|film|box office|trailer|star|hollywood|tollywood|bollywood/.test(text)) cat = 'Entertainment';
+      }
+      item.category = cat;
+      deduped.push(item);
+    }
+
+    res.json({ data: deduped });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -427,18 +465,23 @@ router.delete('/content/:type/:id', (req, res) => {
   try {
     if (type === 'news') {
       db.prepare('DELETE FROM news WHERE id = ?').run(id);
+      db.prepare('DELETE FROM top_stories WHERE id = ?').run(id);
     } else if (type === 'reels') {
       db.prepare('DELETE FROM reels WHERE id = ?').run(id);
     } else if (type === 'posts') {
       db.prepare('DELETE FROM posts WHERE id = ?').run(id);
     } else if (type === 'streams' || type === 'live-streams') {
       db.prepare('DELETE FROM user_streams WHERE id = ?').run(id);
+      db.prepare('DELETE FROM live_streams WHERE id = ?').run(id);
+      db.prepare('DELETE FROM live_tv_channels WHERE id = ?').run(id);
+      db.prepare('DELETE FROM top_stories WHERE id = ?').run(id);
+      db.prepare('DELETE FROM news WHERE id = ?').run(id);
     } else {
       return res.status(400).json({ error: 'Invalid content type' });
     }
 
-    logAudit(req.user.id, `Delete Content (${type})`, id);
-    res.json({ success: true });
+    logAudit(req.user?.id || 'admin', `Delete Content (${type})`, id);
+    res.json({ success: true, message: 'Item deleted successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1102,6 +1145,145 @@ router.delete('/security/audit', (req, res) => {
     db.prepare('DELETE FROM audit_logs').run();
     logAudit(req, 'Clear All Security Audit Logs', 'system');
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 9. Bulk Data Import & Replacement API
+router.post('/content/bulk-import', (req, res) => {
+  const { target, mode, items } = req.body || {};
+  if (!target || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Target table and non-empty items array are required' });
+  }
+
+  const validTargets = ['news', 'posts', 'reels', 'top_stories'];
+  if (!validTargets.includes(target)) {
+    return res.status(400).json({ error: `Invalid target table. Must be one of: ${validTargets.join(', ')}` });
+  }
+
+  try {
+    const isReplaceMode = mode === 'replace';
+
+    db.transaction(() => {
+      // Step 1: If replace mode, clear existing table data
+      if (isReplaceMode) {
+        if (target === 'news') {
+          db.prepare("DELETE FROM news WHERE category != 'Past Live Streams'").run();
+        } else {
+          db.prepare(`DELETE FROM ${target}`).run();
+        }
+      }
+
+      // Step 2: Insert new items
+      const nowStr = new Date().toISOString();
+
+      if (target === 'news') {
+        const stmt = db.prepare(`
+          INSERT INTO news (id, title, summary, body, category, source, is_breaking, image_url, video_url, read_minutes, published_at, tags)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        for (const item of items) {
+          stmt.run(
+            item.id || randomUUID(),
+            item.title || 'Untitled Article',
+            item.summary || item.headline || '',
+            item.body || item.article || item.url || '',
+            item.category || 'General',
+            item.source || 'NEXUS Wire',
+            item.isBreaking || item.is_breaking ? 1 : 0,
+            item.imageUrl || item.image_url || 'https://picsum.photos/seed/news/800/600',
+            item.videoUrl || item.video_url || null,
+            Number(item.readMinutes || item.read_minutes || 3),
+            item.publishedAt || item.published_at || nowStr,
+            item.tags || null
+          );
+        }
+      } else if (target === 'posts') {
+        const stmt = db.prepare(`
+          INSERT INTO posts (id, user_id, title, body, image_url, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `);
+        for (const item of items) {
+          stmt.run(
+            item.id || randomUUID(),
+            item.userId || item.user_id || req.user.id,
+            item.title || 'Untitled Post',
+            item.body || item.content || '',
+            item.imageUrl || item.image_url || null,
+            item.createdAt || item.created_at || nowStr
+          );
+        }
+      } else if (target === 'reels') {
+        const stmt = db.prepare(`
+          INSERT INTO reels (id, user_id, title, description, video_url, location, likes_count, comments_count, views_count, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0, ?)
+        `);
+        for (const item of items) {
+          stmt.run(
+            item.id || randomUUID(),
+            item.userId || item.user_id || req.user.id,
+            item.title || 'Untitled Reel',
+            item.description || item.body || '',
+            item.videoUrl || item.video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+            item.location || 'NEXUS Network',
+            item.createdAt || item.created_at || nowStr
+          );
+        }
+      } else if (target === 'top_stories') {
+        const stmt = db.prepare(`
+          INSERT INTO top_stories (id, headline, category, body, image_url, read_time, source, published_at, priority)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        for (const item of items) {
+          stmt.run(
+            item.id || randomUUID(),
+            item.headline || item.title || 'Top Story',
+            item.category || 'Breaking',
+            item.body || item.summary || '',
+            item.imageUrl || item.image_url || 'https://picsum.photos/seed/top/800/600',
+            item.readTime || item.read_time || '3 min read',
+            item.source || 'NEXUS Wire',
+            item.publishedAt || item.published_at || nowStr,
+            Number(item.priority || 1)
+          );
+        }
+      }
+    })();
+
+    logAudit(req, `Bulk Import Data (${target}, mode: ${mode || 'append'})`, `${items.length} records processed`);
+    broadcastUpdate(target);
+
+    res.json({
+      success: true,
+      message: `Successfully ${isReplaceMode ? 'replaced all existing' : 'imported'} ${items.length} ${target} records.`,
+      count: items.length
+    });
+  } catch (err) {
+    console.error('Bulk import failed:', err);
+    res.status(500).json({ error: `Bulk import failed: ${err.message}` });
+  }
+});
+
+// DELETE /api/admin/content/clear-all/:target
+router.delete('/content/clear-all/:target', (req, res) => {
+  const { target } = req.params;
+  const validTargets = ['news', 'posts', 'reels', 'top_stories'];
+  if (!validTargets.includes(target)) {
+    return res.status(400).json({ error: `Invalid target. Must be one of: ${validTargets.join(', ')}` });
+  }
+
+  try {
+    if (target === 'news') {
+      db.prepare("DELETE FROM news WHERE category != 'Past Live Streams'").run();
+    } else {
+      db.prepare(`DELETE FROM ${target}`).run();
+    }
+
+    logAudit(req, `Clear All Data (${target})`, 'All records wiped');
+    broadcastUpdate(target);
+
+    res.json({ success: true, message: `All ${target} records have been permanently cleared.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

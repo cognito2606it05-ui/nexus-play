@@ -252,26 +252,27 @@ function InlineReelPlayer({ videoUrl, isNews, blurRegions, needsBlur, blurReason
 
   const currentVideoUrl = playlist[trackIndex] || videoUrl;
 
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const el = videoRef.current;
+    if (!el) return;
+    el.muted = isMuted;
+    if (needsBlur) {
+      el.pause();
+      return;
+    }
+    if (!paused) {
+      el.play().catch(() => {});
+    } else {
+      el.focus();
+      el.pause();
+    }
+  }, [paused, isMuted, currentVideoUrl, needsBlur]);
+
   // On Web, render HTML5 <video> for instant load
   if (Platform.OS === 'web') {
-    const videoRef = useRef<HTMLVideoElement | null>(null);
-
-    useEffect(() => {
-      const el = videoRef.current;
-      if (!el) return;
-      el.muted = isMuted;
-      if (needsBlur) {
-        el.pause();
-        return;
-      }
-      if (!paused) {
-        el.play().catch(() => {});
-      } else {
-        el.focus();
-        el.pause();
-      }
-    }, [paused, isMuted, currentVideoUrl, needsBlur]);
-
     const handleEnded = () => {
       if (isNews && trackIndex < playlist.length - 1) {
         setTrackIndex(trackIndex + 1);
@@ -1645,7 +1646,22 @@ export default function HomeScreen() {
         {selectedCategory === 'Home' && !searchQuery.trim() && (
           <>
             {/* Top Stories horizontal carousel */}
-            <TopStoriesCarousel data={topStories} loading={loading} onPressStory={(id) => { const item = topStories.find(t => t.id === id); if (item) setSelectedContent({ ...item, type: 'news' }); }} />
+            <TopStoriesCarousel 
+              data={topStories} 
+              loading={loading} 
+              onPressStory={(id) => { 
+                const item = topStories.find((t: any) => t.id === id); 
+                if (item) {
+                  setSelectedContent({ 
+                    ...item, 
+                    type: 'news',
+                    title: item.title || item.headline || 'Top Story',
+                    summary: item.summary || item.description || '',
+                    body: item.body || item.article || item.summary || item.description || '',
+                  });
+                }
+              }} 
+            />
 
             {/* Live TV horizontal shelf */}
             {renderLiveTVShelf()}
@@ -1810,7 +1826,7 @@ export default function HomeScreen() {
                         <View style={styles.feedHeaderDetails}>
                           <Text style={styles.feedProfileName} numberOfLines={1}>{profileName}</Text>
                           {locationText ? (
-                            <Text style={styles.feedLocationText} numberOfLines={1}>📍 {locationText}</Text>
+                            <Text style={styles.feedLocationText} numberOfLines={1}>📍 <Translate text={locationText} /></Text>
                           ) : (
                             <Text style={styles.feedTime}>{timeAgo(item.publishedAt || item.createdAt || new Date().toISOString())}</Text>
                           )}
@@ -1824,7 +1840,7 @@ export default function HomeScreen() {
                           onPress={() => handleFollowCreator(item)}
                         >
                           <Text style={[styles.feedFollowBtnText, isFollowing && styles.feedFollowingBtnText]}>
-                            {isFollowing ? 'Following' : 'Follow'}
+                            {isFollowing ? <Translate text="Following" /> : <Translate text="Follow" />}
                           </Text>
                         </HoverPressable>
                       )}
@@ -1861,7 +1877,7 @@ export default function HomeScreen() {
                           </View>
                         ) : (
                           <View style={{ padding: 16, backgroundColor: colors.surfaceAlt, borderRadius: 8 }}>
-                            <Text style={{ color: colors.text, fontSize: 14 }}>{item.content || item.summary}</Text>
+                            <Text style={{ color: colors.text, fontSize: 14 }}><Translate text={item.content || item.summary} /></Text>
                           </View>
                         )}
                       </Pressable>
@@ -1915,11 +1931,11 @@ export default function HomeScreen() {
                     <View style={{ paddingHorizontal: 12, paddingBottom: 14 }}>
                       {commentsCount > 0 ? (
                         <Pressable onPress={() => handleOpenComments(item)}>
-                          <Text style={styles.viewCommentsText}>View all {commentsCount} comments</Text>
+                          <Text style={styles.viewCommentsText}><Translate text="View all comments" /></Text>
                         </Pressable>
                       ) : (
                         <Pressable onPress={() => handleOpenComments(item)}>
-                          <Text style={styles.viewCommentsText}>Add a comment...</Text>
+                          <Text style={styles.viewCommentsText}><Translate text="Add a comment..." /></Text>
                         </Pressable>
                       )}
                       <Text style={styles.timeAgoText}>{timeAgo(item.publishedAt || item.createdAt || new Date().toISOString())}</Text>
@@ -2040,13 +2056,23 @@ export default function HomeScreen() {
 
             {/* Media Content */}
             <View style={styles.storyViewerBody}>
-              {activeStoryGroup.stories[activeStoryIndex]?.mediaType === 'video' ? (
-                <View style={{ flex: 1, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
-                  <Text style={{ color: '#fff' }}>🎥 Video Story Playback Optimized for mobile</Text>
-                </View>
+              {activeStoryGroup.stories[activeStoryIndex]?.mediaType === 'video' || activeStoryGroup.stories[activeStoryIndex]?.mediaUrl?.match(/\.(mp4|webm|mov)(\?.*)?$/i) ? (
+                Platform.OS === 'web' ? (
+                  <video
+                    src={activeStoryGroup.stories[activeStoryIndex]?.mediaUrl}
+                    autoPlay
+                    controls
+                    playsInline
+                    style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000' }}
+                  />
+                ) : (
+                  <View style={{ flex: 1, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
+                    <MoviePlayer uri={activeStoryGroup.stories[activeStoryIndex]?.mediaUrl || ''} styles={{ modalVideo: { width: '100%', height: '100%' } }} />
+                  </View>
+                )
               ) : (
                 <Image
-                  source={{ uri: activeStoryGroup.stories[activeStoryIndex]?.mediaUrl }}
+                  source={{ uri: activeStoryGroup.stories[activeStoryIndex]?.mediaUrl || 'https://picsum.photos/seed/story/800/1200' }}
                   style={{ width: '100%', height: '100%', resizeMode: 'contain' }}
                 />
               )}
