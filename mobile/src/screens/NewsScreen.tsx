@@ -165,6 +165,34 @@ const DELHI_DISTRICTS = [
   'West Delhi'
 ];
 
+const STATES_LIST = [
+  { id: 'All', label: 'All News', icon: '🌐' },
+  { id: 'Andhra Pradesh', label: 'Andhra Pradesh', icon: '🏛️' },
+  { id: 'Telangana', label: 'Telangana', icon: '🏰' },
+  { id: 'Delhi', label: 'Delhi', icon: '🕌' },
+  { id: 'National', label: 'National', icon: '🇮🇳' },
+  { id: 'International', label: 'International', icon: '🌍' },
+];
+
+const NEWS_CATEGORIES = [
+  'All',
+  'Politics',
+  'Business',
+  'Sports',
+  'Entertainment',
+  'Technology',
+  'Education',
+  'Crime',
+  'Health',
+  'Lifestyle',
+  'Weather',
+  'Science',
+  'Automobile',
+  'Opinion',
+  'Editorial',
+  'District News'
+];
+
 const REGIONS = [
   { id: 'AP', label: 'AP News' },
   { id: 'Telangana', label: 'Telangana News' },
@@ -354,21 +382,34 @@ export default function NewsScreen({ route }: { route?: any }) {
 
   // News Tab States
   const [news, setNews] = useState<NewsItem[]>([]);
-  const [categories, setCategories] = useState<string[]>(['All']);
+  const [categories, setCategories] = useState<string[]>(NEWS_CATEGORIES);
   const [category, setCategory] = useState('All');
+  const [selectedState, setSelectedState] = useState('Andhra Pradesh');
   const [region, setRegion] = useState('AP');
   const [selectedDistrict, setSelectedDistrict] = useState('All Districts');
   const [showDistrictDropdown, setShowDistrictDropdown] = useState(false);
 
-  // Upload News Modal State
+  // Upload & Edit News Modal State
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
   const [uploadTitle, setUploadTitle] = useState('');
   const [uploadSummary, setUploadSummary] = useState('');
   const [uploadBody, setUploadBody] = useState('');
-  const [uploadCategory, setUploadCategory] = useState('General');
+  const [uploadCategory, setUploadCategory] = useState('Politics');
+  const [uploadSubcategory, setUploadSubcategory] = useState('');
+  const [uploadState, setUploadState] = useState('Andhra Pradesh');
   const [uploadRegion, setUploadRegion] = useState('AP');
   const [uploadDistrict, setUploadDistrict] = useState('All Districts');
+  const [uploadCity, setUploadCity] = useState('');
   const [uploadLocation, setUploadLocation] = useState('');
+  const [uploadLanguage, setUploadLanguage] = useState('English');
+  const [uploadReporter, setUploadReporter] = useState('');
+  const [uploadIsBreaking, setUploadIsBreaking] = useState(false);
+  const [uploadIsFeatured, setUploadIsFeatured] = useState(false);
+  const [uploadPriority, setUploadPriority] = useState('0');
+  const [uploadStatus, setUploadStatus] = useState<'published' | 'draft'>('published');
+  const [uploadPublishDate, setUploadPublishDate] = useState('');
+  const [uploadTags, setUploadTags] = useState('');
   const [uploadFileName, setUploadFileName] = useState('');
   const [uploadImageData, setUploadImageData] = useState('');
   const [uploadVideoFileName, setUploadVideoFileName] = useState('');
@@ -376,6 +417,7 @@ export default function NewsScreen({ route }: { route?: any }) {
   const [uploadTargetLang, setUploadTargetLang] = useState('None');
   const [isLocating, setIsLocating] = useState(false);
   const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   // Reels Tab States
@@ -473,13 +515,16 @@ export default function NewsScreen({ route }: { route?: any }) {
     setLoading(true);
     try {
       if (selectedTab === 'News') {
-        const res = await api.getNews(
-          category,
-          region,
-          (region === 'AP' || region === 'Telangana' || region === 'Delhi/North') ? selectedDistrict : undefined
-        );
+        const res = await api.getNews({
+          state: selectedState !== 'All' ? selectedState : undefined,
+          category: category !== 'All' ? category : undefined,
+          district: selectedDistrict !== 'All Districts' ? selectedDistrict : undefined,
+        });
         setNews(res.data || []);
-        setCategories(res.categories || ['All']);
+        if (res.categories && res.categories.length > 0) {
+          const merged = Array.from(new Set([...NEWS_CATEGORIES, ...res.categories]));
+          setCategories(merged);
+        }
       } else if (selectedTab === 'Reels') {
         const res = await api.getReels(null, 30);
         setReels(res.data || []);
@@ -642,7 +687,7 @@ export default function NewsScreen({ route }: { route?: any }) {
 
   useEffect(() => {
     loadTabData();
-  }, [selectedTab, category, region, selectedDistrict]);
+  }, [selectedTab, category, selectedState, region, selectedDistrict]);
 
   // Collapse video player on screen blur
   useEffect(() => {
@@ -1060,13 +1105,68 @@ export default function NewsScreen({ route }: { route?: any }) {
     }
   };
 
-  // Submit News Upload Form
-  const handleUploadSubmit = async () => {
+  const openEditNewsModal = (article: NewsItem) => {
+    setEditingArticleId(article.id);
+    setUploadTitle(article.title || '');
+    setUploadSummary(article.summary || '');
+    setUploadBody(article.body || '');
+    setUploadCategory(article.category || 'Politics');
+    setUploadSubcategory(article.subcategory || '');
+    setUploadState(article.state || article.region || 'Andhra Pradesh');
+    setUploadRegion(article.region || 'AP');
+    setUploadDistrict(article.district || 'All Districts');
+    setUploadCity(article.city || '');
+    setUploadLocation(article.location || '');
+    setUploadLanguage(article.language || 'English');
+    setUploadReporter(article.reporter || article.source || '');
+    setUploadIsBreaking(!!article.isBreaking);
+    setUploadIsFeatured(!!article.isFeatured);
+    setUploadPriority(String(article.priority || 0));
+    setUploadStatus((article.publishStatus as any) || 'published');
+    setUploadPublishDate(article.publishedAt ? new Date(article.publishedAt).toISOString().split('T')[0] : '');
+    setUploadTags(article.tags || '');
+    setUploadFileName('');
+    setUploadImageData('');
+    setUploadVideoFileName('');
+    setUploadVideoData('');
+    setShowUploadModal(true);
+  };
+
+  const resetNewsUploadForm = () => {
+    setEditingArticleId(null);
+    setUploadTitle('');
+    setUploadSummary('');
+    setUploadBody('');
+    setUploadCategory('Politics');
+    setUploadSubcategory('');
+    setUploadState('Andhra Pradesh');
+    setUploadRegion('AP');
+    setUploadDistrict('All Districts');
+    setUploadCity('');
+    setUploadLocation('');
+    setUploadLanguage('English');
+    setUploadReporter('');
+    setUploadIsBreaking(false);
+    setUploadIsFeatured(false);
+    setUploadPriority('0');
+    setUploadStatus('published');
+    setUploadPublishDate('');
+    setUploadTags('');
+    setUploadFileName('');
+    setUploadImageData('');
+    setUploadVideoFileName('');
+    setUploadVideoData('');
+  };
+
+  // Submit News Upload Form (Create or Update)
+  const handleUploadSubmit = async (forcedStatus?: 'published' | 'draft') => {
     if (!uploadTitle.trim() || !uploadBody.trim()) {
       alert('Title and Body are required');
       return;
     }
     
+    const finalStatus = forcedStatus || uploadStatus;
+
     setScanProgress(0);
     setScanStatus('Initiating secure link...');
     setShowScanner(true);
@@ -1079,7 +1179,7 @@ export default function NewsScreen({ route }: { route?: any }) {
           setScanStatus('Uploading media file...');
           return prev + 5;
         } else if (prev < 60) {
-          setScanStatus('Scanning cover image for 18+ and adult content...');
+          setScanStatus('Scanning content safety...');
           return prev + 4;
         } else if (prev < 85) {
           setScanStatus('Verifying text & news safety compliance...');
@@ -1093,20 +1193,39 @@ export default function NewsScreen({ route }: { route?: any }) {
     }, 150);
 
     try {
-      await api.createNews({
+      const payload = {
         title: uploadTitle.trim(),
         summary: uploadSummary.trim() || uploadTitle.trim(),
         body: uploadBody.trim(),
         category: uploadCategory,
+        subcategory: uploadSubcategory.trim() || undefined,
+        state: uploadState,
         region: uploadRegion,
         district: uploadDistrict,
-        location: uploadLocation,
+        city: uploadCity.trim() || undefined,
+        location: uploadLocation.trim() || undefined,
+        language: uploadLanguage,
+        isBreaking: uploadIsBreaking,
+        isFeatured: uploadIsFeatured,
+        priority: Number(uploadPriority) || 0,
+        status: finalStatus,
+        publishDate: uploadPublishDate || undefined,
+        reporter: uploadReporter.trim() || undefined,
+        tags: uploadTags.trim() || undefined,
         imageData: uploadImageData || undefined,
         imageName: uploadFileName || undefined,
         videoData: uploadVideoData || undefined,
         videoName: uploadVideoFileName || undefined,
         targetLang: uploadTargetLang !== 'None' ? uploadTargetLang : undefined,
-      });
+      };
+
+      if (editingArticleId) {
+        await api.updateNews(editingArticleId, payload);
+        showToast('Article updated successfully!');
+      } else {
+        await api.createNews(payload);
+        showToast(finalStatus === 'draft' ? 'Draft saved successfully!' : 'News published successfully!');
+      }
       
       clearInterval(progressInterval);
       setScanProgress(100);
@@ -1115,16 +1234,7 @@ export default function NewsScreen({ route }: { route?: any }) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       setShowUploadModal(false);
-      setUploadTitle('');
-      setUploadSummary('');
-      setUploadBody('');
-      setUploadLocation('');
-      setUploadFileName('');
-      setUploadImageData('');
-      setUploadVideoFileName('');
-      setUploadVideoData('');
-      setUploadTargetLang('None');
-      showToast('News uploaded successfully!');
+      resetNewsUploadForm();
       loadTabData();
     } catch (err: any) {
       clearInterval(progressInterval);
@@ -1667,37 +1777,45 @@ export default function NewsScreen({ route }: { route?: any }) {
 
       {selectedTab === 'News' && (
         <View style={{ width: '100%', zIndex: 10 }}>
-          {/* Region Tabs */}
+          {/* State Navigation Tabs */}
           <View style={styles.regionTabs}>
-            {REGIONS.filter(r => r.id !== 'Past Live Streams').map((reg) => (
-              <Pressable
-                key={reg.id}
-                style={[styles.regionTab, region === reg.id && styles.regionTabActive]}
-                onPress={() => handleRegionChange(reg.id)}
-              >
-                <Text style={[styles.regionTabText, region === reg.id && styles.regionTabTextActive]}>
-                  <Translate text={reg.label} />
-                </Text>
-              </Pressable>
-            ))}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 12, gap: 8, flexDirection: 'row', alignItems: 'center' }}>
+              {STATES_LIST.map((st) => (
+                <Pressable
+                  key={st.id}
+                  style={[styles.regionTab, selectedState === st.id && styles.regionTabActive]}
+                  onPress={() => {
+                    setSelectedState(st.id);
+                    setSelectedDistrict('All Districts');
+                    setCategory('All');
+                    setExpanded(null);
+                    setShowDistrictDropdown(false);
+                  }}
+                >
+                  <Text style={[styles.regionTabText, selectedState === st.id && styles.regionTabTextActive]}>
+                    {st.icon} <Translate text={st.label} />
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
 
           {/* District Dropdown Filter */}
-          {(region === 'AP' || region === 'Telangana' || region === 'Delhi/North') && (
+          {(selectedState === 'Andhra Pradesh' || selectedState === 'Telangana' || selectedState === 'Delhi') && (
             <View style={styles.districtFilterRow}>
               <Pressable
                 style={styles.dropdownTrigger}
                 onPress={() => setShowDistrictDropdown(!showDistrictDropdown)}
               >
                 <Text style={styles.dropdownText}>
-                  📍 <Translate text="Zone District" />: <Text style={{ color: colors.accent, fontWeight: '900' }}><Translate text={selectedDistrict} /></Text> ▾
+                  📍 <Translate text="District" />: <Text style={{ color: colors.accent, fontWeight: '900' }}><Translate text={selectedDistrict} /></Text> ▾
                 </Text>
               </Pressable>
 
               {showDistrictDropdown && (
                 <View style={styles.dropdownContent}>
                   <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled={true}>
-                    {(region === 'AP' ? AP_DISTRICTS : region === 'Telangana' ? TELANGANA_DISTRICTS : DELHI_DISTRICTS).map((dist) => (
+                    {(selectedState === 'Andhra Pradesh' ? AP_DISTRICTS : selectedState === 'Telangana' ? TELANGANA_DISTRICTS : DELHI_DISTRICTS).map((dist) => (
                       <Pressable
                         key={dist}
                         style={[styles.dropdownItem, selectedDistrict === dist && styles.dropdownItemActive]}
@@ -1759,29 +1877,40 @@ export default function NewsScreen({ route }: { route?: any }) {
                 renderItem={({ item }) => {
                   const needsBlur = item.needsBlur;
                   const canDelete = item.source === activeProfile?.name || user?.role === 'super_admin';
+                  const isSaved = savedIds.has(item.id);
 
-                    const imgW = isDesktop ? 240 : 130;
-                    const imgH = isDesktop ? 145 : 105;
+                  const imgW = isDesktop ? 240 : 130;
+                  const imgH = isDesktop ? 145 : 105;
 
-                    return (
-                      <HoverPressable
-                        style={[styles.article, { position: 'relative' }]}
-                        onPress={() => setSelectedArticle(item)}
-                      >
-                        <View style={{ position: 'relative', width: imgW, height: imgH }}>
-                          <View style={[
-                            styles.thumb,
-                            { width: imgW, height: imgH, overflow: 'hidden' },
-                            needsBlur && Platform.OS === 'web' && { filter: 'blur(30px)', WebkitFilter: 'blur(30px)' } as any
-                          ]}>
-                            <Image 
-                              source={{ uri: item.imageUrl }} 
-                              style={StyleSheet.absoluteFill} 
-                              blurRadius={needsBlur ? 30 : 0}
-                            />
-                            <BlurRegionsOverlay regions={item.blurRegions} />
-                          </View>
+                  return (
+                    <HoverPressable
+                      style={[styles.article, { position: 'relative' }]}
+                      onPress={() => {
+                        api.viewNews(item.id).catch(() => {});
+                        setSelectedArticle(item);
+                      }}
+                    >
+                      <View style={{ position: 'relative', width: imgW, height: imgH }}>
+                        <View style={[
+                          styles.thumb,
+                          { width: imgW, height: imgH, overflow: 'hidden' },
+                          needsBlur && Platform.OS === 'web' && { filter: 'blur(30px)', WebkitFilter: 'blur(30px)' } as any
+                        ]}>
+                          <Image 
+                            source={{ uri: item.imageUrl || (item as any).thumbnail }} 
+                            style={StyleSheet.absoluteFill} 
+                            blurRadius={needsBlur ? 30 : 0}
+                          />
+                          {item.videoUrl && (
+                            <View style={{ position: 'absolute', inset: 0, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }}>
+                              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' }}>
+                                <Text style={{ color: '#fff', fontSize: 14 }}>▶</Text>
+                              </View>
+                            </View>
+                          )}
+                          <BlurRegionsOverlay regions={item.blurRegions} />
                         </View>
+                      </View>
 
                       <View style={styles.articleBody}>
                         {item.needsBlur && item.blurReason && (
@@ -1790,25 +1919,108 @@ export default function NewsScreen({ route }: { route?: any }) {
                             <Text style={{ fontSize: 12, color: 'rgba(255, 255, 255, 0.9)' }}><Translate text={item.blurReason} /></Text>
                           </View>
                         )}
-                        <View style={styles.articleMetaRow}>
+
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 6, alignItems: 'center' }}>
                           {item.isBreaking && <Text style={styles.breakingTag}><Translate text="BREAKING" /></Text>}
-                          {item.location && (
-                            <View style={styles.aiLocationBadge}>
-                              <Text style={styles.aiLocationBadgeText}>📍 <Translate text={item.location} /></Text>
+                          {item.category && (
+                            <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(59, 130, 246, 0.15)' }}>
+                              <Text style={{ color: '#3B82F6', fontSize: 10, fontWeight: '800' }}>{item.category}</Text>
                             </View>
                           )}
-                          <Text style={styles.source}>{item.source}</Text>
-                          <Text style={styles.dot}>·</Text>
-                          <Text style={styles.meta}>{item.readMinutes} <Translate text="min read" /></Text>
+                          {(item.state || item.region) && (
+                            <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(16, 185, 129, 0.15)' }}>
+                              <Text style={{ color: '#10B981', fontSize: 10, fontWeight: '800' }}>📍 {item.state || item.region}</Text>
+                            </View>
+                          )}
+                          {item.district && item.district !== 'All Districts' && (
+                            <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, backgroundColor: 'rgba(245, 158, 11, 0.15)' }}>
+                              <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '800' }}>{item.district}</Text>
+                            </View>
+                          )}
                         </View>
+
                         <Text style={styles.articleTitle} numberOfLines={2}><Translate text={item.title} /></Text>
                         <Text style={styles.articleSummary} numberOfLines={2}><Translate text={item.summary} /></Text>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                        
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          <Text style={styles.source}>👤 {item.reporter || item.source}</Text>
+                          <Text style={styles.dot}>·</Text>
                           <Text style={styles.time}>{timeAgo(item.publishedAt)}</Text>
-                          {canDelete && (
-                            <HoverPressable onPress={(e: any) => { e.stopPropagation(); handleDeleteNews(item.id); }} style={{ padding: 4 }}>
-                              <Text style={{ fontSize: 14 }}>🗑️</Text>
+                        </View>
+
+                        {/* Interactive Stats & Actions Bar */}
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, paddingTop: 6, borderTopWidth: 1, borderTopColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                            <HoverPressable
+                              onPress={(e: any) => {
+                                e.stopPropagation();
+                                api.likeNews(item.id).then(res => {
+                                  setNews(prev => prev.map(n => n.id === item.id ? { ...n, likes: res.likes } : n));
+                                }).catch(() => {});
+                              }}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            >
+                              <Text style={{ fontSize: 12 }}>❤️</Text>
+                              <Text style={{ fontSize: 11, color: isDark ? '#94A3B8' : '#64748B', fontWeight: '700' }}>{item.likes || 0}</Text>
                             </HoverPressable>
+
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Text style={{ fontSize: 12 }}>👁️</Text>
+                              <Text style={{ fontSize: 11, color: isDark ? '#94A3B8' : '#64748B', fontWeight: '700' }}>{item.views || 0}</Text>
+                            </View>
+
+                            <HoverPressable
+                              onPress={(e: any) => {
+                                e.stopPropagation();
+                                api.shareNews(item.id).catch(() => {});
+                                handleShareNews(item);
+                              }}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            >
+                              <Text style={{ fontSize: 12 }}>🔗</Text>
+                              <Text style={{ fontSize: 11, color: isDark ? '#94A3B8' : '#64748B', fontWeight: '700' }}>{item.shares || 0}</Text>
+                            </HoverPressable>
+
+                            <HoverPressable
+                              onPress={(e: any) => {
+                                e.stopPropagation();
+                                if (isSaved) {
+                                  api.removeFromWatchlist('news', item.id).catch(() => {});
+                                  setSavedIds(prev => { const n = new Set(prev); n.delete(item.id); return n; });
+                                  showToast('Removed from watchlist');
+                                } else {
+                                  api.addToWatchlist({ contentType: 'news', contentId: item.id, title: item.title, thumbnailUrl: item.imageUrl, category: 'saved' }).catch(() => {});
+                                  setSavedIds(prev => new Set(prev).add(item.id));
+                                  showToast('Saved to watchlist');
+                                }
+                              }}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            >
+                              <Text style={{ fontSize: 12 }}>{isSaved ? '🔖' : '📑'}</Text>
+                            </HoverPressable>
+                          </View>
+
+                          {canDelete && (
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <HoverPressable
+                                onPress={(e: any) => {
+                                  e.stopPropagation();
+                                  openEditNewsModal(item);
+                                }}
+                                style={{ padding: 2 }}
+                              >
+                                <Text style={{ fontSize: 13 }}>✏️</Text>
+                              </HoverPressable>
+                              <HoverPressable
+                                onPress={(e: any) => {
+                                  e.stopPropagation();
+                                  handleDeleteNews(item.id);
+                                }}
+                                style={{ padding: 2 }}
+                              >
+                                <Text style={{ fontSize: 13 }}>🗑️</Text>
+                              </HoverPressable>
+                            </View>
                           )}
                         </View>
                       </View>

@@ -310,8 +310,20 @@ export function initSchema() {
       read_minutes INTEGER NOT NULL DEFAULT 1,
       published_at TEXT NOT NULL,
       region       TEXT,
+      state        TEXT,
       district     TEXT,
+      city         TEXT,
       location     TEXT,
+      subcategory  TEXT,
+      language     TEXT DEFAULT 'en',
+      is_featured  INTEGER NOT NULL DEFAULT 0,
+      priority     INTEGER NOT NULL DEFAULT 0,
+      publish_status TEXT DEFAULT 'published',
+      updated_at   TEXT,
+      likes        INTEGER NOT NULL DEFAULT 0,
+      shares       INTEGER NOT NULL DEFAULT 0,
+      views        INTEGER NOT NULL DEFAULT 0,
+      comments     INTEGER NOT NULL DEFAULT 0,
       tags         TEXT,
       sentiment    TEXT,
       seo_headline TEXT,
@@ -622,19 +634,53 @@ export function initSchema() {
   } catch (e) {}
 
   try {
-    db.exec('CREATE INDEX IF NOT EXISTS idx_watchlist_sync ON watchlist (profile_id, last_modified);');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_news_state ON news (state);');
   } catch (e) {}
   try {
-    db.exec('CREATE INDEX IF NOT EXISTS idx_reels_order ON reels (sort_order);');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_news_category ON news (category);');
   } catch (e) {}
   try {
-    db.exec('CREATE INDEX IF NOT EXISTS idx_live_active ON live_streams (ended, last_seen);');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_news_published_at ON news (published_at);');
   } catch (e) {}
   try {
-    db.exec('CREATE INDEX IF NOT EXISTS idx_comments_reel ON comments (reel_id, created_at);');
+    db.exec('CREATE INDEX IF NOT EXISTS idx_news_is_breaking ON news (is_breaking);');
+  } catch (e) {}
+
+  try {
+    db.exec('ALTER TABLE news ADD COLUMN state TEXT;');
   } catch (e) {}
   try {
-    db.exec('CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications (user_id, read, created_at);');
+    db.exec('ALTER TABLE news ADD COLUMN city TEXT;');
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE news ADD COLUMN subcategory TEXT;');
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE news ADD COLUMN language TEXT DEFAULT 'en';");
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE news ADD COLUMN is_featured INTEGER DEFAULT 0;');
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE news ADD COLUMN priority INTEGER DEFAULT 0;');
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE news ADD COLUMN publish_status TEXT DEFAULT 'published';");
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE news ADD COLUMN updated_at TEXT;');
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE news ADD COLUMN likes INTEGER DEFAULT 0;');
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE news ADD COLUMN shares INTEGER DEFAULT 0;');
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE news ADD COLUMN views INTEGER DEFAULT 0;');
+  } catch (e) {}
+  try {
+    db.exec('ALTER TABLE news ADD COLUMN comments INTEGER DEFAULT 0;');
   } catch (e) {}
 
   // Safe ALTER TABLE commands

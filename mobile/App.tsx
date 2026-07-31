@@ -6,14 +6,31 @@ import { ThemeProvider } from './src/state/ThemeContext';
 import { LanguageProvider } from './src/state/LanguageContext';
 import RootNavigator from './src/navigation/RootNavigator';
 
+import { Platform } from 'react-native';
+
+const getWebOrigin = () => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+    return window.location.origin;
+  }
+  return 'http://localhost:9001';
+};
+
 const linking = {
-  prefixes: ['http://localhost:8081', 'nexusplay://'],
+  prefixes: [
+    getWebOrigin(),
+    'http://localhost:9001',
+    'http://localhost:8081',
+    'http://localhost:5000',
+    'http://localhost:4000',
+    'http://localhost:3000',
+    'nexusplay://'
+  ],
   config: {
     screens: {
       Home: '',
       Reels: 'reels',
       News: 'news',
-      Live: 'live/:streamId',
+      Live: 'live',
       Profile: 'profile',
       ReporterBroadcast: 'reporter-station',
       StudioDashboard: 'reporter/dashboard',

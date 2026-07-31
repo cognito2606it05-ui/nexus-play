@@ -96,16 +96,37 @@ export const api = {
     request<{ data: Movie[]; genres: string[] }>(`/api/movies${genre ? `?genre=${encodeURIComponent(genre)}` : ''}`),
 
   // news
-  getNews: (category?: string, region?: string, district?: string) => {
+  getNews: (options?: { category?: string; region?: string; state?: string; district?: string; city?: string; subcategory?: string; language?: string; status?: string; search?: string; sort?: string; page?: number; limit?: number } | string, regArg?: string, distArg?: string) => {
     let query = '';
     const params: string[] = [];
-    if (category && category !== 'All') params.push(`category=${encodeURIComponent(category)}`);
-    if (region) params.push(`region=${encodeURIComponent(region)}`);
-    if (district && district !== 'All Districts') params.push(`district=${encodeURIComponent(district)}`);
+
+    if (typeof options === 'object' && options !== null) {
+      if (options.category && options.category !== 'All') params.push(`category=${encodeURIComponent(options.category)}`);
+      if (options.region) params.push(`region=${encodeURIComponent(options.region)}`);
+      if (options.state && options.state !== 'All' && options.state !== 'All States') params.push(`state=${encodeURIComponent(options.state)}`);
+      if (options.district && options.district !== 'All' && options.district !== 'All Districts') params.push(`district=${encodeURIComponent(options.district)}`);
+      if (options.city && options.city !== 'All') params.push(`city=${encodeURIComponent(options.city)}`);
+      if (options.subcategory && options.subcategory !== 'All') params.push(`subcategory=${encodeURIComponent(options.subcategory)}`);
+      if (options.language && options.language !== 'All') params.push(`language=${encodeURIComponent(options.language)}`);
+      if (options.status && options.status !== 'All') params.push(`status=${encodeURIComponent(options.status)}`);
+      if (options.search) params.push(`search=${encodeURIComponent(options.search)}`);
+      if (options.sort) params.push(`sort=${encodeURIComponent(options.sort)}`);
+      if (options.page) params.push(`page=${options.page}`);
+      if (options.limit) params.push(`limit=${options.limit}`);
+    } else {
+      if (options && options !== 'All') params.push(`category=${encodeURIComponent(options)}`);
+      if (regArg) params.push(`region=${encodeURIComponent(regArg)}`);
+      if (distArg && distArg !== 'All Districts') params.push(`district=${encodeURIComponent(distArg)}`);
+    }
+
     if (params.length > 0) query = `?${params.join('&')}`;
-    return request<{ data: any[]; categories: string[] }>(`/api/news${query}`);
+    return request<{ data: NewsItem[]; categories: string[]; page?: number; total?: number }>(`/api/news${query}`);
   },
   getTicker: () => request<{ data: { id: string; title: string; source: string }[] }>('/api/news/ticker'),
+  updateNews: (id: string, body: any) => request<NewsItem>(`/api/news/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  likeNews: (id: string) => request<{ success: boolean; likes: number }>(`/api/news/${id}/like`, { method: 'POST' }),
+  viewNews: (id: string) => request<{ success: boolean; views: number }>(`/api/news/${id}/view`, { method: 'POST' }),
+  shareNews: (id: string) => request<{ success: boolean; shares: number }>(`/api/news/${id}/share`, { method: 'POST' }),
 
   // watchlist
   getWatchlist: () => request<{ data: WatchlistItem[]; serverTime: number }>('/api/watchlist'),

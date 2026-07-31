@@ -469,9 +469,9 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
             )}
           </View>
 
-          {/* CENTER SECTION: Navigation Menu (Desktop only) */}
+          {/* CENTER SECTION: Navigation Menu (Desktop & Tablet) */}
           <View style={styles.headerSectionCenter}>
-            {isDesktop && (
+            {(isDesktop || isTablet) && (
               <View style={styles.navMenuContainer}>
                 {([
                   { name: 'Home', label: 'HOME' },
