@@ -16,8 +16,6 @@ const getWebFallback = () => {
   return '';
 };
 
-const fallback = Platform.OS === 'android' 
-  ? 'http://10.0.2.2:9001' 
-  : (Platform.OS === 'web' ? getWebFallback() : 'http://46.28.44.54:9001');
+const fallback = Platform.OS === 'web' ? getWebFallback() : 'http://46.28.44.54:9001';
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || fallback;

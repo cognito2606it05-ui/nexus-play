@@ -21,7 +21,8 @@
       "adaptiveIcon": {
         "foregroundImage": "../logo.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.anonymous.nexusplay"
     },
     "web": {
       "favicon": "../logo.png",
