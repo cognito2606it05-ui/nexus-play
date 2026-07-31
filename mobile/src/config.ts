@@ -9,7 +9,11 @@ const getWebFallback = () => {
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     return 'http://localhost:9001';
   }
-  return 'http://46.28.44.54:9001';
+  if (hostname === '46.28.44.54') {
+    return 'http://46.28.44.54:9001';
+  }
+  // Netlify or external domains: use relative URL so Netlify proxies /api securely
+  return '';
 };
 
 const fallback = Platform.OS === 'android' 
