@@ -1,3 +1,3 @@
-/api/*  https://nexusplayapi.loca.lt/api/:splat  200!
-/media/*  https://nexusplayapi.loca.lt/media/:splat  200!
+/api/*  https://large-clowns-wear.loca.lt/api/:splat  200!
+/media/*  https://large-clowns-wear.loca.lt/media/:splat  200!
 /*  /index.html  200
