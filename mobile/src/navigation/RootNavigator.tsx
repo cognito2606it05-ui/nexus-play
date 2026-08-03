@@ -414,7 +414,6 @@ function MainTabs() {
 
   return (
     <Tab.Navigator
-      initialRouteName="Home"
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,

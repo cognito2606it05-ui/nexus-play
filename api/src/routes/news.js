@@ -18,6 +18,7 @@ export const DEVOTIONAL_SUBCATEGORIES = [
 ];
 
 export const router = Router();
+router.use(requireAuth);
 
 const geminiCache = new Map();
 
@@ -107,13 +108,6 @@ function serialize(n, req) {
     }
   } catch (e) {}
 
-  let rawImg = n.image_url || '';
-  if (rawImg.includes('/media/uploads/')) {
-    const filename = rawImg.split('/media/uploads/').pop();
-    rawImg = `/media/uploads/${filename}`;
-  }
-  const finalImg = req ? absUrl(req, rawImg) : rawImg;
-
   return {
     id: n.id,
     title: n.title,
@@ -122,7 +116,7 @@ function serialize(n, req) {
     category: n.category,
     source: n.source,
     isBreaking: !!n.is_breaking,
-    imageUrl: finalImg,
+    imageUrl: req ? absUrl(req, n.image_url) : n.image_url,
     videoUrl: n.video_url || null,
     readMinutes: n.read_minutes || 1,
     publishedAt: n.published_at,
@@ -142,7 +136,7 @@ function serialize(n, req) {
     views: n.views || 0,
     comments: n.comments || 0,
     reporter: n.source || 'NEXUS Reporter',
-    thumbnail: finalImg,
+    thumbnail: req ? absUrl(req, n.image_url) : n.image_url,
     video: n.video_url || null,
     tags: n.tags || null,
     sentiment: n.sentiment || null,
