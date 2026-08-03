@@ -8,12 +8,11 @@ import { randomUUID } from 'node:crypto';
 import { moderateUploadContent } from '../moderation.js';
 
 export const router = Router();
-router.use(requireAuth, resolveProfile);
 
 function serialize(req, row, profileId) {
-  const liked = !!db
+  const liked = profileId ? !!db
     .prepare('SELECT 1 FROM post_likes WHERE profile_id = ? AND post_id = ?')
-    .get(profileId, row.id);
+    .get(profileId, row.id) : false;
 
   let regions = [];
   try {
@@ -46,7 +45,7 @@ function serialize(req, row, profileId) {
   };
 }
 
-// GET /api/posts
+// GET /api/posts (Public)
 router.get('/', (req, res) => {
   try {
     const rows = db.prepare(`
@@ -56,8 +55,9 @@ router.get('/', (req, res) => {
       ORDER BY p.created_at DESC
     `).all();
 
+    const profileId = req.get('x-profile-id') || null;
     res.json({
-      data: rows.map((r) => serialize(req, r, req.profile.id)),
+      data: rows.map((r) => serialize(req, r, profileId)),
     });
   } catch (err) {
     console.error('Failed to get posts:', err);
@@ -66,7 +66,7 @@ router.get('/', (req, res) => {
 });
 
 // POST /api/posts - Create a new post
-router.post('/', async (req, res) => {
+router.post('/', requireAuth, resolveProfile, async (req, res) => {
   const { content, location, category, imageData, targetLang, imageName } = req.body || {};
   if (!content) {
     return res.status(400).json({ error: 'content is required' });
@@ -135,7 +135,7 @@ router.post('/', async (req, res) => {
 });
 
 // DELETE /api/posts/:id - Delete user post
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireAuth, resolveProfile, (req, res) => {
   const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
   if (!post) {
     return res.status(404).json({ error: 'Post not found' });
@@ -164,7 +164,7 @@ router.delete('/:id', (req, res) => {
 });
 
 // POST /api/posts/:id/like - Like or unlike a post
-router.post('/:id/like', (req, res) => {
+router.post('/:id/like', requireAuth, resolveProfile, (req, res) => {
   const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(req.params.id);
   if (!post) return res.status(404).json({ error: 'Post not found' });
 

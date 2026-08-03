@@ -18,7 +18,6 @@ export const DEVOTIONAL_SUBCATEGORIES = [
 ];
 
 export const router = Router();
-router.use(requireAuth);
 
 const geminiCache = new Map();
 
