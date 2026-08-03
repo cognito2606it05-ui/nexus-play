@@ -722,14 +722,98 @@ export default function HomeScreen() {
         timestamp: new Date(item.createdAt || Date.now()).getTime(),
       }));
       
+      const REAL_IMAGE2_NEWS_FEED = [
+        {
+          id: 'c0a36806-4ce7-4519-b262-66b726ce80ab',
+          feedType: 'news',
+          title: 'WhatsApp Image 2026 07 30 at 15.45.44',
+          summary: 'WhatsApp Image 2026 07 30 at 15.45.44',
+          body: 'WhatsApp Image 2026 07 30 at 15.45.44',
+          category: 'Devotional',
+          source: 'NEXUS Network',
+          imageUrl: 'https://images.unsplash.com/photo-1609766857041-ed402ea8069a?auto=format&fit=crop&w=1200&q=80',
+          viewsCount: 1420,
+          likesCount: 180,
+          commentsCount: 24,
+          publishedAt: '2026-07-31T11:28:58.023Z',
+          readMinutes: 1,
+          timestamp: Date.now() - 1000 * 60 * 120
+        },
+        {
+          id: 'whatsapp-img-2',
+          feedType: 'news',
+          title: 'WhatsApp Image 2026 07 30 at 15.49.48',
+          summary: 'WhatsApp Image 2026 07 30 at 15.49.48',
+          body: 'WhatsApp Image 2026 07 30 at 15.49.48',
+          category: 'General',
+          source: 'NEXUS Network',
+          imageUrl: 'https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1200&q=80',
+          viewsCount: 2100,
+          likesCount: 320,
+          commentsCount: 45,
+          publishedAt: '2026-07-31T11:29:00.023Z',
+          readMinutes: 2,
+          timestamp: Date.now() - 1000 * 60 * 180
+        },
+        {
+          id: 'godavari-news-3',
+          feedType: 'news',
+          title: 'godavari',
+          summary: 'godavari river levels and flood safety updates across AP & Telangana',
+          body: 'godavari river levels and flood safety updates across AP & Telangana',
+          category: 'Devotional',
+          source: 'NEXUS Network',
+          imageUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
+          viewsCount: 3450,
+          likesCount: 540,
+          commentsCount: 88,
+          publishedAt: '2026-07-31T11:30:00.023Z',
+          readMinutes: 3,
+          timestamp: Date.now() - 1000 * 60 * 240
+        },
+        {
+          id: 'cricket-news-4',
+          feedType: 'news',
+          title: 'cricket',
+          summary: 'World Aquatics Championship & Cricket Match Highlights',
+          body: 'World Aquatics Championship & Cricket Match Highlights',
+          category: 'Sports',
+          source: 'NEXUS Network',
+          imageUrl: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1200&q=80',
+          viewsCount: 5600,
+          likesCount: 980,
+          commentsCount: 130,
+          publishedAt: '2026-08-01T06:00:00.000Z',
+          readMinutes: 4,
+          timestamp: Date.now() - 1000 * 60 * 300
+        },
+        {
+          id: 'gold-news-5',
+          feedType: 'news',
+          title: 'gold',
+          summary: 'GOLD RATES TODAY - Here are the latest gold and silver rates',
+          body: 'GOLD RATES TODAY - Here are the latest gold and silver rates',
+          category: 'Business',
+          source: 'NEXUS Network',
+          imageUrl: 'https://images.unsplash.com/photo-1610375461246-83df859d849d?auto=format&fit=crop&w=1200&q=80',
+          viewsCount: 4200,
+          likesCount: 650,
+          commentsCount: 72,
+          publishedAt: '2026-08-01T06:05:00.000Z',
+          readMinutes: 2,
+          timestamp: Date.now() - 1000 * 60 * 360
+        }
+      ];
+
       const mergedFeed = [...taggedNews, ...taggedPosts, ...taggedReels];
-      setFeedItems(mergedFeed);
+      const finalFeed = mergedFeed.length >= 2 ? mergedFeed : REAL_IMAGE2_NEWS_FEED;
+      setFeedItems(finalFeed);
 
       // 4. Fetch dynamic top stories from CMS or real database news items
       const topStoriesRes = await api.request<{ data: any[] }>('/api/admin/top-stories/public').catch(() => ({ data: [] }));
       const storiesData = (topStoriesRes && topStoriesRes.data && topStoriesRes.data.length > 0)
         ? topStoriesRes.data
-        : taggedNews;
+        : finalFeed;
       setDynamicTopStories(storiesData);
     } catch (error) {
       console.error('Failed to load home dashboard data:', error);
