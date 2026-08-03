@@ -722,78 +722,14 @@ export default function HomeScreen() {
         timestamp: new Date(item.createdAt || Date.now()).getTime(),
       }));
       
-      const MOCK_FALLBACK_FEED = [
-        {
-          id: 'mock-news-1',
-          feedType: 'news',
-          title: 'Global Tech Summit 2026 Announces Next-Gen AI Advances & Quantum Breakthroughs',
-          summary: 'Key leaders gather in Visakhapatnam & Hyderabad to unveil revolutionary spatial AI and neural computing architectures.',
-          body: 'The annual international Tech Summit kicked off with keynotes from global technology pioneers...',
-          category: 'Tech',
-          region: 'AP & TS',
-          district: 'Visakhapatnam',
-          imageUrl: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
-          videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-          author: 'Nexus Breaking Desk',
-          viewsCount: 14200,
-          likesCount: 890,
-          commentsCount: 142,
-          timestamp: Date.now() - 1000 * 60 * 30
-        },
-        {
-          id: 'mock-news-2',
-          feedType: 'news',
-          title: 'India Wins Landmark Victory in International Cricket Championship Finals',
-          summary: 'A thrilling finish in the final overs secures a historic win with spectacular bowling and batting performances.',
-          body: 'Fans across the nation celebrated as the national team clinched the trophy after a high-stakes match...',
-          category: 'Sports',
-          region: 'National',
-          district: 'New Delhi',
-          imageUrl: 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?auto=format&fit=crop&w=1200&q=80',
-          author: 'Sports Central Desk',
-          viewsCount: 28900,
-          likesCount: 2340,
-          commentsCount: 410,
-          timestamp: Date.now() - 1000 * 60 * 120
-        },
-        {
-          id: 'mock-post-1',
-          feedType: 'post',
-          content: '🚀 Just tested the new Room Live debate feature on Nexus Play! Crisp HD WebRTC audio & screen sharing works flawlessly.',
-          author: 'User 7999',
-          authorName: 'User 7999',
-          authorAvatar: 'https://api.dicebear.com/7.x/bottts/png?seed=Nexus7999',
-          likesCount: 45,
-          commentsCount: 12,
-          timestamp: Date.now() - 1000 * 60 * 15
-        },
-        {
-          id: 'mock-news-3',
-          feedType: 'news',
-          title: 'New High-Speed Rail & Express Highway Projects Approved for AP and Telangana Hubs',
-          summary: 'Infrastructure boost to cut travel times between major cities to under two hours with green energy corridors.',
-          body: 'The Infrastructure Development Board today sanctioned a multi-billion dollar expansion initiative...',
-          category: 'News',
-          region: 'AP & TS',
-          district: 'Vijayawada',
-          imageUrl: 'https://images.unsplash.com/photo-1474487548417-781cb71495f3?auto=format&fit=crop&w=1200&q=80',
-          author: 'Regional Bureau',
-          viewsCount: 18900,
-          likesCount: 1250,
-          commentsCount: 98,
-          timestamp: Date.now() - 1000 * 60 * 240
-        }
-      ];
-
       const mergedFeed = [...taggedNews, ...taggedPosts, ...taggedReels];
-      const finalFeed = mergedFeed.length > 0 ? mergedFeed.sort(() => Math.random() - 0.5) : MOCK_FALLBACK_FEED;
-      setFeedItems(finalFeed);
+      setFeedItems(mergedFeed);
 
-      // 4. Fetch dynamic top stories from CMS
+      // 4. Fetch dynamic top stories from CMS or real database news items
       const topStoriesRes = await api.request<{ data: any[] }>('/api/admin/top-stories/public').catch(() => ({ data: [] }));
       const storiesData = (topStoriesRes && topStoriesRes.data && topStoriesRes.data.length > 0)
         ? topStoriesRes.data
-        : MOCK_FALLBACK_FEED.filter(x => x.feedType === 'news');
+        : taggedNews;
       setDynamicTopStories(storiesData);
     } catch (error) {
       console.error('Failed to load home dashboard data:', error);
