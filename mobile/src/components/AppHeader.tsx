@@ -876,7 +876,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   logoContainer: {
-    marginRight: 14,
+    marginRight: 10,
     height: 72,
     justifyContent: 'center',
     alignItems: 'center',
@@ -885,8 +885,8 @@ const styles = StyleSheet.create({
     }) as any,
   },
   logoImage: {
-    width: 120,
-    height: 120,
+    width: 110,
+    height: 40,
     ...Platform.select({
       web: {
         objectFit: 'contain' as any,

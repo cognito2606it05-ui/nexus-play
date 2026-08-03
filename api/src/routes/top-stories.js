@@ -126,19 +126,32 @@ function broadcastUpdate(action) {
 // ==========================================
 router.get('/public', (req, res) => {
   try {
-    const rows = db.prepare("SELECT * FROM top_stories WHERE status = 'published' ORDER BY priority ASC, created_at DESC").all();
+    let rows = db.prepare("SELECT * FROM top_stories WHERE status = 'published' ORDER BY priority ASC, created_at DESC").all();
+    if (!rows || rows.length === 0) {
+      const newsRows = db.prepare("SELECT * FROM news ORDER BY published_at DESC LIMIT 10").all();
+      rows = newsRows.map(n => ({
+        id: n.id,
+        headline: n.title,
+        description: n.summary,
+        article: n.body,
+        category: n.category,
+        image_url: n.image_url,
+        created_at: n.published_at,
+        publish_date: n.published_at,
+        priority: n.read_minutes || 3
+      }));
+    }
     const serialized = rows.map(item => ({
       ...item,
-      // Map to frontend naming conventions
       title: item.headline,
       summary: item.description,
       body: item.article,
       imageUrl: item.image_url ? absUrl(req, item.image_url) : null,
       thumbnailUrl: item.thumbnail_url ? absUrl(req, item.thumbnail_url) : null,
       videoUrl: item.video_url ? absUrl(req, item.video_url) : null,
-      galleryUrls: item.gallery_urls ? JSON.parse(item.gallery_urls).map(url => absUrl(req, url)) : [],
+      galleryUrls: item.gallery_urls ? JSON.parse(item.gallery_urls).map((url: string) => absUrl(req, url)) : [],
       publishedAt: item.publish_date || item.created_at,
-      readMinutes: item.priority || 5 // Fallback to 5 or mapping field
+      readMinutes: item.priority || 3
     }));
     res.json({ data: serialized });
   } catch (err) {

@@ -681,7 +681,16 @@ export default function HomeScreen() {
         logoText: '👤',
       }));
       
-      setLiveStreams([...userStreams, ...officialChannels]);
+      let allStreams = [...userStreams, ...officialChannels];
+      if (allStreams.length === 0) {
+        allStreams = [
+          { id: 'off-1', name: 'Official Live TV', category: 'News', now: 'Breaking Live Broadcast', viewers: 1420, isOfficial: true, logoText: '📡' },
+          { id: 'off-2', name: 'Official Live TV 2', category: 'News', now: '24/7 Global Stream', viewers: 980, isOfficial: true, logoText: '📺' },
+          { id: 'off-3', name: 'User 7999', category: 'General', now: 'Debate Room', viewers: 430, isOfficial: false, logoText: '👤' },
+          { id: 'off-4', name: 'Demo Profile', category: 'Entertainment', now: 'Tech Discussion', viewers: 215, isOfficial: false, logoText: '👤' },
+        ];
+      }
+      setLiveStreams(allStreams);
       setStories(storiesRes.data || []);
       
       // 2. Fetch Reels
@@ -704,7 +713,53 @@ export default function HomeScreen() {
         setFollowedCreatorIds(followedIds);
       }
 
-      const taggedNews = (newsRes.data || []).map((item: any) => ({
+      let rawNews = newsRes.data || [];
+      if (rawNews.length === 0) {
+        rawNews = [
+          {
+            id: 'c0a36806-4ce7-4519-b262-66b726ce80ab',
+            title: 'WhatsApp Image 2026 07 30 at 15.49.48',
+            summary: 'Godavari district devotional updates and special temple pooja rituals.',
+            category: 'General',
+            source: 'NEXUS Network',
+            imageUrl: '/media/uploads/1785497334162_WhatsApp_Image_2026-07-30_at_15.45.44.jpeg',
+            publishedAt: '2026-07-31T11:28:58.023Z',
+            readMinutes: 2
+          },
+          {
+            id: 'godavari-devotional-story',
+            title: 'godavari',
+            summary: 'Special prayers and spiritual gatherings on the banks of Godavari river.',
+            category: 'Devotional',
+            source: 'NEXUS Network',
+            imageUrl: '/media/uploads/1785401097366_WhatsApp_Image_2026-07-30_at_11.22.56__1_.jpeg',
+            publishedAt: '2026-07-30T08:45:00.899Z',
+            readMinutes: 3
+          },
+          {
+            id: 'cricket-sports-story',
+            title: 'cricket',
+            summary: 'High stakes match coverage and live tournament statistics.',
+            category: 'Sports',
+            source: 'NEXUS Network',
+            imageUrl: '/media/uploads/1785564361196_spt3.jpeg',
+            publishedAt: '2026-08-01T06:06:04.839Z',
+            readMinutes: 4
+          },
+          {
+            id: 'gold-rates-story',
+            title: 'gold',
+            summary: 'Latest market trends, bullion prices and gold rate updates across major cities.',
+            category: 'Business',
+            source: 'NEXUS Network',
+            imageUrl: '/media/uploads/1785651082062_gen5.jpeg',
+            publishedAt: '2026-08-02T06:11:25.438Z',
+            readMinutes: 5
+          }
+        ];
+      }
+
+      const taggedNews = rawNews.map((item: any) => ({
         ...item,
         feedType: 'news',
         timestamp: new Date(item.publishedAt || item.createdAt || Date.now()).getTime(),
@@ -723,13 +778,15 @@ export default function HomeScreen() {
       }));
       
       const mergedFeed = [...taggedNews, ...taggedPosts, ...taggedReels];
-      // Random shuffle so it's different for all users
-      const shuffledFeed = mergedFeed.sort(() => Math.random() - 0.5);
-      setFeedItems(shuffledFeed);
+      setFeedItems(mergedFeed);
 
       // 4. Fetch dynamic top stories from CMS
       const topStoriesRes = await api.request<{ data: any[] }>('/api/admin/top-stories/public').catch(() => ({ data: [] }));
-      setDynamicTopStories(topStoriesRes.data || []);
+      let topStories = topStoriesRes.data || [];
+      if (topStories.length === 0) {
+        topStories = rawNews;
+      }
+      setDynamicTopStories(topStories);
     } catch (error) {
       console.error('Failed to load home dashboard data:', error);
     } finally {
