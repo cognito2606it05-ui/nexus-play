@@ -23,6 +23,8 @@ export const apiAuth = {
 async function rawRequest(path: string, init: RequestInit, withProfile: boolean) {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Bypass-Tunnel-Reminder': 'true',
+    'bypass-tunnel-reminder': 'true',
     ...(init.headers as Record<string, string>),
   };
   if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
