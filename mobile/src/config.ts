@@ -6,17 +6,20 @@ import { Platform } from 'react-native';
 const getWebFallback = () => {
   if (typeof window === 'undefined') return 'http://localhost:9001';
   try {
-    const { protocol, hostname } = window.location;
+    const { protocol, hostname, port } = window.location;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:9001';
+    }
+    if (port) {
+      return `${protocol}//${hostname}:${port}`;
     }
     if (hostname.includes('192.168.') || hostname.includes('10.0.')) {
       return `${protocol}//${hostname}:9001`;
     }
-    // Netlify web deployment -> use live backend tunnel
-    return 'https://nexusplayapi.loca.lt';
+    // Netlify / Web production: return relative path to match HTTPS protocol and avoid Mixed Content blocks
+    return '';
   } catch (e) {
-    return 'https://nexusplayapi.loca.lt';
+    return '';
   }
 };
 
