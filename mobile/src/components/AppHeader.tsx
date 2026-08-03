@@ -475,7 +475,8 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
                 {([
                   { name: 'Home', label: 'HOME' },
                   { name: 'Reels', label: 'REELS' },
-                  { name: 'News', label: 'NEWS' }
+                  { name: 'News', label: 'NEWS' },
+                  { name: 'Live', label: 'LIVE TV' }
                 ] as const).map((tab) => {
                   const isFocused = currentRouteName === tab.name;
                   const activeColor = isFocused ? colors.primary : (isDark ? '#94A3B8' : '#475569');
