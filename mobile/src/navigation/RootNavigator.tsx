@@ -25,6 +25,7 @@ import StudioDashboardScreen from '../screens/StudioDashboardScreen';
 import RecordedLivePlayerScreen from '../screens/RecordedLivePlayerScreen';
 import TopStoriesAdminScreen from '../screens/TopStoriesAdminScreen';
 import SuperAdminDashboardScreen from '../screens/SuperAdminDashboardScreen';
+import RoomLiveScreen from '../screens/RoomLiveScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -432,6 +433,7 @@ function MainTabs() {
       <Tab.Screen name="ReporterBroadcast" component={ReporterBroadcastScreen} />
       <Tab.Screen name="StudioDashboard" component={StudioDashboardScreen} />
       <Tab.Screen name="RecordedLivePlayer" component={RecordedLivePlayerScreen} />
+      <Tab.Screen name="RoomLive" component={RoomLiveScreen} />
       <Tab.Screen name="TopStoriesAdmin" component={TopStoriesAdminScreen} />
       <Tab.Screen name="SuperAdminDashboard" component={SuperAdminDashboardScreen} />
     </Tab.Navigator>

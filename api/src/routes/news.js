@@ -414,12 +414,18 @@ router.get('/state/:state/category/:category', async (req, res) => {
 
 // GET /api/news/ticker
 router.get('/ticker', async (req, res) => {
-  const rows = db.prepare('SELECT * FROM news WHERE is_breaking = 1 ORDER BY published_at DESC LIMIT 12').all();
-  let newsList = rows.map((n) => ({ id: n.id, title: n.title, source: n.source, isBreaking: true }));
-  const hnStories = await fetchHNNews();
-  const breakingHn = hnStories.filter(s => s.is_breaking).map(n => ({ id: n.id, title: n.title, source: n.source, isBreaking: true }));
-  newsList = [...newsList, ...breakingHn].slice(0, 12);
-  res.json({ data: newsList });
+  try {
+    // 1. Fetch live CMS UI ticker labels
+    const tickerLabels = db.prepare("SELECT key AS id, value AS title, 'NEXUS Ticker' AS source, 1 AS isBreaking FROM cms_ui_labels WHERE label_type = 'ticker_item' AND is_active = 1").all();
+    
+    // 2. Fetch single-module breaking news items
+    const newsRows = db.prepare("SELECT id, title, source, 1 AS isBreaking FROM news WHERE module = 'breaking_news' OR is_breaking = 1 ORDER BY published_at DESC LIMIT 10").all();
+    
+    const combined = [...tickerLabels, ...newsRows].slice(0, 15);
+    res.json({ data: combined });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get('/:id', async (req, res) => {

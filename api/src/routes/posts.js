@@ -67,7 +67,7 @@ router.get('/', (req, res) => {
 
 // POST /api/posts - Create a new post
 router.post('/', async (req, res) => {
-  const { content, location, imageData, targetLang, imageName } = req.body || {};
+  const { content, location, category, imageData, targetLang, imageName } = req.body || {};
   if (!content) {
     return res.status(400).json({ error: 'content is required' });
   }
@@ -102,13 +102,14 @@ router.post('/', async (req, res) => {
     const finalNeutralizedText = aiResult && aiResult.neutralizedText ? aiResult.neutralizedText : null;
 
     db.prepare(`
-      INSERT INTO posts (id, profile_id, content, location, image_url, likes, comments, created_at, needs_blur, blur_reason, blur_regions, ocr_text, translated_text, neutralized_text)
-      VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO posts (id, profile_id, content, location, category, image_url, likes, comments, created_at, needs_blur, blur_reason, blur_regions, ocr_text, translated_text, neutralized_text)
+      VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       postId,
       req.profile.id,
       finalNeutralizedText || content,
       location || null,
+      category || null,
       imageUrl,
       now,
       finalNeedsBlur,

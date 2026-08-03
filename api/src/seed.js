@@ -115,6 +115,8 @@ function seedOfficialChannelsOnly() {
     { id: 'm2', name: 'Action Movies Live', category: 'Movies', now_playing: 'Live Action Thriller Showcase', next_up: 'Midnight Specials', is_official: 1, viewers: 12900, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' },
     { id: 's1', name: 'NEXUS Sports Live', category: 'Sports', now_playing: 'Live Sports Action & Championship Highlights', next_up: 'Sports Center', is_official: 1, viewers: 39500, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
     { id: 's2', name: 'Grand Arena Sports', category: 'Sports', now_playing: 'Grand Championship Live & Daily Highlights', next_up: 'Daily Highlights', is_official: 1, viewers: 28400, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4' },
+    { id: 't1', name: 'NEXUS Tech & AI Live', category: 'Tech', now_playing: 'Silicon Tech & Quantum AI Breakthroughs', next_up: 'Future Code', is_official: 1, viewers: 9800, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreet.mp4' },
+    { id: 'v1', name: 'NEXUS Devotional Live', category: 'Devotional', now_playing: 'Sacred Temples & Daily Morning Pooja Live', next_up: 'Gita Chanting', is_official: 1, viewers: 21500, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4' },
   ];
 
   const insChannel = db.prepare(`
@@ -614,6 +616,8 @@ export async function seed({ reset = false } = {}) {
     { id: 'm2', name: 'Action Movies Live', category: 'Movies', now_playing: 'Live Action Thriller Showcase', next_up: 'Midnight Specials', is_official: 1, viewers: 12900, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' },
     { id: 's1', name: 'NEXUS Sports Live', category: 'Sports', now_playing: 'Live Sports Action & Championship Highlights', next_up: 'Sports Center', is_official: 1, viewers: 39500, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
     { id: 's2', name: 'Grand Arena Sports', category: 'Sports', now_playing: 'Grand Championship Live & Daily Highlights', next_up: 'Daily Highlights', is_official: 1, viewers: 28400, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4' },
+    { id: 't1', name: 'NEXUS Tech & AI Live', category: 'Tech', now_playing: 'Silicon Tech & Quantum AI Breakthroughs', next_up: 'Future Code', is_official: 1, viewers: 9800, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreet.mp4' },
+    { id: 'v1', name: 'NEXUS Devotional Live', category: 'Devotional', now_playing: 'Sacred Temples & Daily Morning Pooja Live', next_up: 'Gita Chanting', is_official: 1, viewers: 21500, video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4' },
   ];
 
   const insChannel = db.prepare(`

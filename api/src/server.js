@@ -161,6 +161,8 @@ export function createApp({ staticMounts = [], spaFallback = null } = {}) {
     const pathname = url.pathname;
     req.query = Object.fromEntries(url.searchParams.entries());
 
+    console.log(`[API Request] ${req.method} ${pathname} from ${req.socket.remoteAddress}`);
+
     try {
       // static mounts
       for (const m of staticMounts) {
@@ -214,6 +216,10 @@ export function createApp({ staticMounts = [], spaFallback = null } = {}) {
       if (router && router._isRouter) mounts.push({ prefix, router });
     },
     get(path, handler) { direct.push({ method: 'GET', pattern: compile(path), handler }); },
-    listen(port, cb) { server.listen(port, cb); return server; },
+    listen(port, host, cb) {
+      if (typeof host === 'function') { cb = host; host = '0.0.0.0'; }
+      server.listen(port, host || '0.0.0.0', cb);
+      return server;
+    },
   };
 }

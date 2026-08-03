@@ -19,13 +19,16 @@ class ApiClient {
     _onSessionExpired = onSessionExpired;
 
     _dio.options.baseUrl = _getApiBaseUrl();
-    _dio.options.connectTimeout = const Duration(seconds: 15);
-    _dio.options.receiveTimeout = const Duration(seconds: 15);
+    _dio.options.connectTimeout = const Duration(seconds: 10);
+    _dio.options.receiveTimeout = const Duration(seconds: 10);
 
     // Add JWT Token & Profile Header Interceptor
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
+          // Sync options.baseUrl with latest _getApiBaseUrl()
+          options.baseUrl = _getApiBaseUrl();
+
           if (_accessToken != null) {
             options.headers['Authorization'] = 'Bearer $_accessToken';
           }
@@ -36,6 +39,7 @@ class ApiClient {
             options.headers['X-Profile-Id'] = _activeProfileId;
           }
           options.headers['Content-Type'] = 'application/json';
+          debugPrint('[ApiClient] OUTBOUND REQUEST: ${options.method} -> ${options.baseUrl}${options.path}');
           return handler.next(options);
         },
         onError: (err, handler) async {
@@ -82,15 +86,38 @@ class ApiClient {
   String? get activeProfileId => _activeProfileId;
   String? get accessToken => _accessToken;
 
+  String _customBaseUrl = '';
+
+  void setCustomBaseUrl(String url) {
+    String formatted = url.trim();
+    if (formatted.isNotEmpty) {
+      if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) {
+        formatted = 'http://$formatted';
+      }
+      if (formatted.endsWith('/')) {
+        formatted = formatted.substring(0, formatted.length - 1);
+      }
+      _customBaseUrl = formatted;
+      _dio.options.baseUrl = formatted;
+    }
+  }
+
   // Dynamic API base URL resolver
   String _getApiBaseUrl() {
+    if (_customBaseUrl.isNotEmpty) {
+      String url = _customBaseUrl.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        url = 'http://$url';
+      }
+      return url.endsWith('/') ? url.substring(0, url.length - 1) : url;
+    }
     // If running in development Web, point to port 9001 of the current host
     if (kIsWeb) {
       final baseUri = Uri.base;
       return '${baseUri.scheme}://${baseUri.host}:9001';
     }
-    // Standard android emulator loopback
-    return 'http://10.0.2.2:9001';
+    // For mobile physical devices on Wi-Fi or testing
+    return 'http://192.168.29.193:9001';
   }
 
   // Refresh tokens

@@ -22,7 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _otpController = TextEditingController();
 
   String _mode = 'login'; // 'login' | 'signup'
-  String _method = 'phone'; // 'phone' | 'email'
+  String _method = 'email'; // 'phone' | 'email'
   
   bool _otpSent = false;
   String? _generatedOtp;
@@ -31,6 +31,11 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
   bool _rememberMe = true;
 
+  final _serverIpController = TextEditingController(text: '192.168.29.193:9001');
+  bool _showServerConfig = false;
+  String? _testConnectionStatus;
+  bool _testingConn = false;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -38,7 +43,39 @@ class _LoginScreenState extends State<LoginScreen> {
     _nameController.dispose();
     _phoneController.dispose();
     _otpController.dispose();
+    _serverIpController.dispose();
     super.dispose();
+  }
+
+  Future<void> _testServerConnection() async {
+    setState(() {
+      _testingConn = true;
+      _testConnectionStatus = null;
+    });
+    try {
+      final ip = _serverIpController.text.trim();
+      ApiClient().setCustomBaseUrl(ip);
+      final dio = Dio();
+      final url = ip.startsWith('http') ? '$ip/health' : 'http://$ip/health';
+      final res = await dio.get(url).timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        setState(() {
+          _testConnectionStatus = '✅ Server connected at $ip!';
+        });
+      } else {
+        setState(() {
+          _testConnectionStatus = '❌ Server returned HTTP ${res.statusCode}';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _testConnectionStatus = '❌ Connection failed: ${e.toString().replaceFirst('Exception: ', '')}';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _testingConn = false);
+      }
+    }
   }
 
   Future<void> _sendOtpCode() async {
@@ -51,6 +88,10 @@ class _LoginScreenState extends State<LoginScreen> {
       _busy = true;
       _error = null;
     });
+
+    if (_serverIpController.text.trim().isNotEmpty) {
+      ApiClient().setCustomBaseUrl(_serverIpController.text.trim());
+    }
 
     try {
       final res = await ApiClient().sendOtp(phone);
@@ -88,6 +129,10 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
+    if (_serverIpController.text.trim().isNotEmpty) {
+      ApiClient().setCustomBaseUrl(_serverIpController.text.trim());
+    }
+
     final auth = context.read<AuthProvider>();
 
     try {
@@ -108,6 +153,45 @@ class _LoginScreenState extends State<LoginScreen> {
             name.isNotEmpty ? name : _emailController.text.split('@')[0],
           );
         }
+      }
+    } catch (e) {
+      if (mounted) {
+        String message = e.toString();
+        if (e is DioException) {
+          final data = e.response?.data;
+          if (data is Map && data.containsKey('message')) {
+            message = data['message'].toString();
+          } else if (data is Map && data.containsKey('error')) {
+            message = data['error'].toString();
+          } else if (e.message != null && e.message!.isNotEmpty) {
+            message = e.message!;
+          }
+        }
+        setState(() => _error = message.replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  Future<void> _quickDemoLogin() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+
+    if (_serverIpController.text.trim().isNotEmpty) {
+      ApiClient().setCustomBaseUrl(_serverIpController.text.trim());
+    }
+
+    final auth = context.read<AuthProvider>();
+
+    try {
+      await auth.signIn('demo@nexusplay.app', 'password123');
+      if (auth.profiles.isNotEmpty) {
+        await auth.selectProfile(auth.profiles.first);
       }
     } catch (e) {
       if (mounted) {
@@ -206,12 +290,83 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          const Text(
-                            'Sign in to access live streams and global breaking news',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.5),
+                          // Server IP Config Bar
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: const Color(0xFF334155)),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Server IP:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11, fontWeight: FontWeight.w600)),
+                                    GestureDetector(
+                                      onTap: () => setState(() => _showServerConfig = !_showServerConfig),
+                                      child: Row(
+                                        children: [
+                                          Text(_serverIpController.text, style: const TextStyle(color: Color(0xFF60A5FA), fontSize: 11, fontWeight: FontWeight.bold)),
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.tune, color: Color(0xFF60A5FA), size: 14),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_showServerConfig) ...[
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _serverIpController,
+                                          style: const TextStyle(color: Colors.white, fontSize: 12),
+                                          decoration: InputDecoration(
+                                            hintText: '192.168.29.193:9001',
+                                            hintStyle: const TextStyle(color: Colors.white30),
+                                            isDense: true,
+                                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                            filled: true,
+                                            fillColor: const Color(0xFF0F172A),
+                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF3B82F6),
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        ),
+                                        onPressed: _testingConn ? null : _testServerConnection,
+                                        child: _testingConn
+                                            ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                            : const Text('Test', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                                      ),
+                                    ],
+                                  ),
+                                  if (_testConnectionStatus != null) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      _testConnectionStatus!,
+                                      style: TextStyle(
+                                        color: _testConnectionStatus!.startsWith('✅') ? const Color(0xFF4ADE80) : const Color(0xFFF87171),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 16),
 
                           // Login Method Selector Tabs
                           Container(
@@ -454,6 +609,19 @@ class _LoginScreenState extends State<LoginScreen> {
                                         : (_mode == 'login' ? 'Sign In' : 'Create Account'),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
                                   ),
+                          ),
+
+                          const SizedBox(height: 12),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF60A5FA),
+                              side: const BorderSide(color: Color(0xFF3B82F6), width: 1.5),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: _busy ? null : _quickDemoLogin,
+                            icon: const Icon(Icons.flash_on, size: 18),
+                            label: const Text('Instant Demo Sign In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                           ),
 
                           if (_method == 'email') ...[

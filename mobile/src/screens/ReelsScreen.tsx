@@ -514,14 +514,11 @@ export default function ReelsScreen() {
 
   return (
     <View style={styles.container} onLayout={onLayout}>
-      {isDesktop && <AppHeader onPressAvatar={() => {}} />}
+      <AppHeader onPressAvatar={() => navigation.navigate('Profile')} />
       <View style={[
         styles.headerRow,
-        isDesktop 
-          ? { height: 60, paddingTop: 0, marginTop: 78, backgroundColor: 'transparent' }
-          : { height: 60 + (insets?.top ?? 0), paddingTop: (insets?.top ?? 0) }
+        { height: 50, paddingTop: 0, marginTop: Math.max((insets?.top ?? 0), 12) + 74, backgroundColor: 'transparent' }
       ]}>
-        <Text style={styles.header}>Reels</Text>
         <HoverPressable style={styles.uploadHeaderBtn} onPress={() => setShowUploadModal(true)}>
           <Text style={styles.uploadHeaderBtnText}>＋ Upload Reel</Text>
         </HoverPressable>

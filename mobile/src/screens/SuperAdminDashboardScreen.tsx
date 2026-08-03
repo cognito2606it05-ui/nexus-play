@@ -48,6 +48,9 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   // Sidebar navigation state
   const [activeTab, setActiveTab] = useState<
     | 'dashboard'
+    | 'content_manager'
+    | 'categories_taxonomy'
+    | 'site_labels'
     | 'home'
     | 'topStories'
     | 'breakingNews'
@@ -87,9 +90,11 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const [showProfileDrawer, setShowProfileDrawer] = useState(false);
   const [playingRecording, setPlayingRecording] = useState<any | null>(null);
 
-  // Global Upload Modal States
+  // Global Upload Modal States (Single-Module Strict Upload Architecture)
   const [showGlobalUploadModal, setShowGlobalUploadModal] = useState(false);
-  const [globalUploadType, setGlobalUploadType] = useState<'news' | 'top_story' | 'breaking' | 'reel' | 'video' | 'gallery' | 'live_tv_thumb'>('news');
+  const [globalUploadType, setGlobalUploadType] = useState<
+    'breaking_news' | 'top_stories' | 'trending_news' | 'news' | 'reels' | 'live_tv' | 'user_streams'
+  >('news');
   const [globalUploadCategory, setGlobalUploadCategory] = useState<string>('General');
   const [globalUploadLanguage, setGlobalUploadLanguage] = useState<string>('English');
   const [globalUploadReporter, setGlobalUploadReporter] = useState<string>('NEXUS Admin');
@@ -102,8 +107,31 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const [globalUploadThumbnailUrl, setGlobalUploadThumbnailUrl] = useState('');
   const [globalUploadVideoUrl, setGlobalUploadVideoUrl] = useState('');
   const [globalUploadFileName, setGlobalUploadFileName] = useState('');
+  const [globalUploadExpiry, setGlobalUploadExpiry] = useState('');
   const [globalUploadProgress, setGlobalUploadProgress] = useState(0);
   const [globalUploading, setGlobalUploading] = useState(false);
+
+  // Architecture Redesign States
+  const [contentManagerItems, setContentManagerItems] = useState<any[]>([]);
+  const [cmModuleFilter, setCmModuleFilter] = useState<string>('all');
+  const [cmCategoryFilter, setCmCategoryFilter] = useState<string>('all');
+  const [cmRegionFilter, setCmRegionFilter] = useState<string>('all');
+  const [cmStatusFilter, setCmStatusFilter] = useState<string>('all');
+  const [cmSearch, setCmSearch] = useState<string>('');
+
+  const [taxonomyList, setTaxonomyList] = useState<any[]>([]);
+  const [showAddTaxModal, setShowAddTaxModal] = useState<boolean>(false);
+  const [taxGroupName, setTaxGroupName] = useState<string>('📰 GENERAL & MAIN');
+  const [taxCategoryName, setTaxCategoryName] = useState<string>('');
+  const [taxIcon, setTaxIcon] = useState<string>('📁');
+  const [taxSortOrder, setTaxSortOrder] = useState<string>('1');
+
+  const [uiLabelsList, setUiLabelsList] = useState<any[]>([]);
+  const [showAddLabelModal, setShowAddLabelModal] = useState<boolean>(false);
+  const [labelKey, setLabelKey] = useState<string>('');
+  const [labelType, setLabelType] = useState<'section_title' | 'ticker_item' | 'nav_label'>('ticker_item');
+  const [labelValue, setLabelValue] = useState<string>('');
+  const [labelExpiry, setLabelExpiry] = useState<string>('');
 
   // Common loading / data states
   const [loading, setLoading] = useState(false);
@@ -126,15 +154,15 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
 
   // Analytics KPIs
   const [kpis, setKpis] = useState({
-    todayVisitors: 14500,
-    activeUsers: 840,
-    liveStreams: 4,
-    publishedNews: 20,
-    pendingNews: 2,
-    revenue: '$4,820',
-    dbSize: '34.2 MB',
-    cpuUsage: '14%',
-    memUsage: '38%',
+    todayVisitors: 0,
+    activeUsers: 0,
+    liveStreams: 0,
+    publishedNews: 0,
+    pendingNews: 0,
+    revenue: '$0.00',
+    dbSize: '0 MB',
+    cpuUsage: 'Active',
+    memUsage: '0 MB',
   });
 
   // Modal forms
@@ -245,15 +273,15 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
         if (stats) {
           const m = stats.metrics || {};
           setKpis({
-            todayVisitors: (m.totalUsers || 0) * 12 + 4500,
+            todayVisitors: m.totalUsers || 0,
             activeUsers: m.activeUsers || 0,
             liveStreams: m.liveStreams || 0,
             publishedNews: m.newsPublished || 0,
             pendingNews: m.totalReports || 0,
-            revenue: `$${(m.revenue || 0).toFixed(2)}`,
-            dbSize: '12.8 MB',
-            cpuUsage: '8%',
-            memUsage: '26%',
+            revenue: typeof m.revenue === 'string' ? m.revenue : `$${(m.revenue || 0).toFixed(2)}`,
+            dbSize: m.dbSize || '0 MB',
+            cpuUsage: 'Active',
+            memUsage: m.memUsage || '0 MB',
           });
         }
       } else if (
@@ -303,6 +331,15 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
         } else if (Array.isArray(res)) {
           setLiveRecordingsList(res);
         }
+      } else if (activeTab === 'content_manager') {
+        const res = await api.request<any>(`/api/admin/content-manager?module=${cmModuleFilter}&category=${cmCategoryFilter}&region=${cmRegionFilter}&status=${cmStatusFilter}&search=${encodeURIComponent(cmSearch)}`);
+        if (res && res.data) setContentManagerItems(res.data);
+      } else if (activeTab === 'categories_taxonomy') {
+        const res = await api.request<any>('/api/admin/taxonomy');
+        if (res && res.data) setTaxonomyList(res.data);
+      } else if (activeTab === 'site_labels') {
+        const res = await api.request<any>('/api/admin/ui-labels');
+        if (res && res.data) setUiLabelsList(res.data);
       }
     } catch (e) {
       console.error('Failed to load admin panel tab data:', e);
@@ -311,8 +348,124 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
     }
   };
 
+  // --- TAXONOMY CATEGORIES CRUD ACTIONS ---
+  const handleSaveTaxonomyCategory = async () => {
+    if (!taxCategoryName.trim()) {
+      showAlert('Category Name Required', 'Please enter a category name.');
+      return;
+    }
+    try {
+      await api.request('/api/admin/taxonomy', {
+        method: 'POST',
+        body: JSON.stringify({
+          groupName: taxGroupName,
+          categoryName: taxCategoryName.trim(),
+          icon: taxIcon.trim() || '📁',
+          sortOrder: Number(taxSortOrder) || 1,
+          isVisible: true,
+        }),
+      });
+      setShowAddTaxModal(false);
+      setTaxCategoryName('');
+      showAlert('Category Created', `Successfully added category "${taxCategoryName}" to group "${taxGroupName}".`);
+      loadTabContent();
+    } catch (e: any) {
+      showAlert('Failed to save category', e.message);
+    }
+  };
+
+  const handleToggleTaxonomyVisibility = async (id: string, currentVisible: boolean) => {
+    try {
+      await api.request(`/api/admin/taxonomy/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ isVisible: !currentVisible }),
+      });
+      loadTabContent();
+    } catch (e: any) {
+      showAlert('Failed to update category', e.message);
+    }
+  };
+
+  const handleDeleteTaxonomyCategory = async (id: string, name: string) => {
+    confirmAction('Delete Category', `Are you sure you want to delete category "${name}"?`, async () => {
+      try {
+        await api.request(`/api/admin/taxonomy/${id}`, { method: 'DELETE' });
+        loadTabContent();
+      } catch (e: any) {
+        showAlert('Delete failed', e.message);
+      }
+    });
+  };
+
+  // --- UI LABELS & TICKER ITEMS CRUD ACTIONS ---
+  const handleSaveUiLabel = async () => {
+    if (!labelValue.trim()) {
+      showAlert('Label/Text Value Required', 'Please enter content value.');
+      return;
+    }
+    const key = labelKey.trim() || `ticker_${Date.now()}`;
+    try {
+      await api.request('/api/admin/ui-labels', {
+        method: 'POST',
+        body: JSON.stringify({
+          key,
+          labelType,
+          value: labelValue.trim(),
+          expiryTime: labelExpiry.trim() || null,
+          isActive: true,
+        }),
+      });
+      setShowAddLabelModal(false);
+      setLabelKey('');
+      setLabelValue('');
+      setLabelExpiry('');
+      showAlert('Saved Successfully', `Added/Updated CMS string "${key}".`);
+      loadTabContent();
+    } catch (e: any) {
+      showAlert('Failed to save item', e.message);
+    }
+  };
+
+  const handleToggleLabelActive = async (key: string, currentActive: boolean) => {
+    try {
+      await api.request(`/api/admin/ui-labels/${key}`, {
+        method: 'PUT',
+        body: JSON.stringify({ isActive: !currentActive }),
+      });
+      loadTabContent();
+    } catch (e: any) {
+      showAlert('Failed to update label', e.message);
+    }
+  };
+
+  const handleDeleteUiLabel = async (key: string) => {
+    confirmAction('Delete CMS String', `Delete CMS string key "${key}"?`, async () => {
+      try {
+        await api.request(`/api/admin/ui-labels/${key}`, { method: 'DELETE' });
+        loadTabContent();
+      } catch (e: any) {
+        showAlert('Delete failed', e.message);
+      }
+    });
+  };
+
+  // --- SINGLE ITEM MODULE MIGRATION ACTION ---
+  const handleMigrateItemModule = async (id: string, newModule: string) => {
+    try {
+      await api.request(`/api/admin/content-manager/${id}/module`, {
+        method: 'PUT',
+        body: JSON.stringify({ newModule }),
+      });
+      showAlert('Module Migrated', `Item migrated to single module: ${newModule}`);
+      loadTabContent();
+    } catch (e: any) {
+      showAlert('Migration failed', e.message);
+    }
+  };
+
   // Universal Global Upload Handler
-  const handleGlobalUploadSubmit = async (targetStatus: 'published' | 'draft' = 'published') => {
+  const handleGlobalUploadSubmit = async (targetStatusArg?: any) => {
+    const targetStatus: 'published' | 'draft' = (typeof targetStatusArg === 'string' && (targetStatusArg === 'published' || targetStatusArg === 'draft')) ? targetStatusArg : 'published';
     let finalTitle = globalUploadTitle.trim();
     if (!finalTitle) {
       if (globalUploadFileName) {
@@ -349,36 +502,50 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
         status: targetStatus,
       };
 
-      if (globalUploadType === 'news' || globalUploadType === 'breaking') {
-        await api.request('/api/admin/content/news', {
+      if (globalUploadType === 'breaking_news') {
+        await api.request('/api/admin/ui-labels', {
           method: 'POST',
-          body: JSON.stringify({ ...payload, isBreaking: globalUploadType === 'breaking' }),
+          body: JSON.stringify({
+            key: `ticker_${Date.now()}`,
+            labelType: 'ticker_item',
+            value: finalTitle,
+            expiryTime: globalUploadExpiry.trim() || null,
+            isActive: true,
+          }),
         });
-      } else if (globalUploadType === 'top_story') {
+      } else if (globalUploadType === 'top_stories') {
         await api.request('/api/admin/top-stories', {
           method: 'POST',
           body: JSON.stringify({
-            headline: globalUploadTitle.trim(),
+            headline: finalTitle,
             description: globalUploadSummary.trim(),
             article: globalUploadBody.trim(),
             category: globalUploadCategory,
             language: globalUploadLanguage,
             author: globalUploadReporter,
             status: targetStatus,
-            priority: '0',
+            imageData: globalUploadMediaUrl,
+            videoData: globalUploadVideoUrl,
+            module: 'top_stories',
           }),
         });
-      } else if (globalUploadType === 'reel' || globalUploadType === 'video') {
-        await api.uploadReel(globalUploadTitle, globalUploadSummary, globalUploadVideoUrl || globalUploadMediaUrl, globalUploadRegion);
-      } else if (globalUploadType === 'live_tv_thumb') {
+      } else if (globalUploadType === 'reels') {
+        await api.uploadReel(finalTitle, globalUploadSummary, globalUploadVideoUrl || globalUploadMediaUrl, globalUploadRegion);
+      } else if (globalUploadType === 'live_tv') {
         await api.request('/api/admin/live-tv/channels', {
           method: 'POST',
-          body: JSON.stringify({ id: `chan-${Date.now()}`, name: globalUploadTitle, category: globalUploadCategory, videoUrl: globalUploadVideoUrl || globalUploadMediaUrl }),
+          body: JSON.stringify({ id: `chan-${Date.now()}`, name: finalTitle, category: globalUploadCategory, videoUrl: globalUploadVideoUrl || globalUploadMediaUrl, module: 'live_tv' }),
         });
       } else {
+        // news, trending_news, user_streams
         await api.request('/api/admin/content/news', {
           method: 'POST',
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            ...payload,
+            module: globalUploadType,
+            isBreaking: globalUploadType === 'breaking_news' ? 1 : 0,
+            isTrending: globalUploadType === 'trending_news' ? 1 : 0,
+          }),
         });
       }
       setGlobalUploadProgress(100);
@@ -1110,36 +1277,16 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
 
   const sidebarItems = [
     { key: 'dashboard', label: '📊 Dashboard' },
-    { key: 'home', label: '🏠 Home Page CMS' },
-    { key: 'topStories', label: '⭐ Top Stories' },
-    { key: 'breakingNews', label: '🚨 Breaking News' },
-    { key: 'trendingNews', label: '⚡ Trending News' },
-    { key: 'news', label: '📰 All News Stories' },
+    { key: 'content_manager', label: '📁 Content Manager' },
+    { key: 'categories_taxonomy', label: '🗂️ Categories & Sections' },
+    { key: 'site_labels', label: '🏷️ Site Content / Labels' },
     { key: 'reels', label: '🎬 Video Reels' },
     { key: 'channels', label: '📺 Live TV Channels' },
-    { key: 'userStreams', label: '📹 User Streams & Live' },
-    { key: 'entertainment', label: '🎬 Entertainment' },
-    { key: 'sports', label: '⚽ Sports' },
-    { key: 'politics', label: '🏛️ Politics' },
-    { key: 'business', label: '💼 Business' },
-    { key: 'technology', label: '💻 Technology' },
-    { key: 'education', label: '📚 Education' },
-    { key: 'health', label: '🏥 Health' },
-    { key: 'world', label: '🌎 World' },
-    { key: 'devotional', label: '🛕 Devotional' },
-    { key: 'weather', label: '☀️ Weather' },
-    { key: 'categories', label: '🏷️ Categories' },
-    { key: 'media', label: '📁 Media Library' },
-    { key: 'ads', label: '💵 Advertisements' },
+    { key: 'userStreams', label: '📡 User Streams & Live' },
     { key: 'users', label: '👥 User Directory' },
     { key: 'reporters', label: '🎙️ Reporters Station' },
-    { key: 'notifications', label: '🔔 Notifications' },
-    { key: 'analytics', label: '📈 Analytics' },
-    { key: 'seo', label: '🔍 SEO & Meta' },
-    { key: 'comments', label: '💬 Comments' },
+    { key: 'ads', label: '💵 Advertisements' },
     { key: 'logs', label: '📜 Audit Logs' },
-    { key: 'rolesPermissions', label: '🛡️ Roles & RBAC' },
-    { key: 'bulkUpload', label: '📥 Bulk Upload' },
     { key: 'settings', label: '⚙️ Settings' },
   ];
 
@@ -1317,7 +1464,241 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                   </View>
                 )}
 
-                {/* 2. NEWS STORIES CRUD */}
+                {/* 1. UNIVERSAL CONTENT MANAGER VIEW */}
+                {activeTab === 'content_manager' && (
+                  <View style={{ gap: 16 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                      <Text style={[styles.sectionHeader, { color: '#0F172A', fontSize: 16 }]}>
+                        📁 Universal Content Catalog ({contentManagerItems.length} items)
+                      </Text>
+                      <Pressable style={[styles.addBtn, { backgroundColor: '#10B981', paddingHorizontal: 16, paddingVertical: 8 }]} onPress={() => setShowGlobalUploadModal(true)}>
+                        <Text style={styles.addBtnText}>🚀 + Upload New Single-Module Item</Text>
+                      </Pressable>
+                    </View>
+
+                    {/* Filter Bar */}
+                    <View style={{ backgroundColor: '#FFFFFF', padding: 14, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', gap: 10 }}>
+                      <Text style={{ color: '#64748B', fontSize: 11, fontWeight: '800', textTransform: 'uppercase' }}>Filter by Single Module:</Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row' }}>
+                        {[
+                          { id: 'all', label: '🌐 All Modules' },
+                          { id: 'breaking_news', label: '🚨 Breaking News' },
+                          { id: 'top_stories', label: '⭐ Top Stories' },
+                          { id: 'trending_news', label: '⚡ Trending News' },
+                          { id: 'news', label: '📰 News Hub' },
+                          { id: 'reels', label: '🎬 Video Reels' },
+                          { id: 'live_tv', label: '📺 Live TV' },
+                          { id: 'user_streams', label: '📡 User Streams' },
+                        ].map(m => (
+                          <Pressable
+                            key={m.id}
+                            style={[styles.filterPill, cmModuleFilter === m.id && styles.filterPillActive, { marginRight: 6 }]}
+                            onPress={() => {
+                              setCmModuleFilter(m.id);
+                              loadTabContent();
+                            }}
+                          >
+                            <Text style={[styles.filterPillText, cmModuleFilter === m.id && { color: '#fff', fontWeight: '800' }]}>{m.label}</Text>
+                          </Pressable>
+                        ))}
+                      </ScrollView>
+
+                      {/* Search Bar */}
+                      <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                        <TextInput
+                          style={[styles.input, { flex: 1, height: 38, marginBottom: 0, backgroundColor: '#F8FAFC', color: '#0F172A', borderColor: '#CBD5E1' }]}
+                          value={cmSearch}
+                          onChangeText={(txt) => { setCmSearch(txt); loadTabContent(); }}
+                          placeholder="Search title, summary, or ID..."
+                          placeholderTextColor="#94A3B8"
+                        />
+                      </View>
+                    </View>
+
+                    {/* Content Table */}
+                    <View style={styles.table}>
+                      <View style={styles.thRow}>
+                        <Text style={[styles.th, { flex: 2.5 }]}>Title / Headline</Text>
+                        <Text style={[styles.th, { flex: 1.2 }]}>Single Module</Text>
+                        <Text style={[styles.th, { flex: 1.2 }]}>Category</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Status</Text>
+                        <Text style={[styles.th, { flex: 2 }]}>Module Migration</Text>
+                        <Text style={[styles.th, { flex: 1, textAlign: 'right' }]}>Actions</Text>
+                      </View>
+                      {contentManagerItems.map((item: any) => (
+                        <View key={item.id} style={styles.trRow}>
+                          <View style={{ flex: 2.5, gap: 2 }}>
+                            <Text style={[styles.tdText, { fontWeight: '700', color: '#0F172A' }]} numberOfLines={1}>{item.title || 'Untitled Item'}</Text>
+                            {item.summary && <Text style={{ color: '#64748B', fontSize: 10 }} numberOfLines={1}>{item.summary}</Text>}
+                          </View>
+
+                          <View style={{ flex: 1.2 }}>
+                            <View style={{ backgroundColor: 'rgba(59,130,246,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' }}>
+                              <Text style={{ color: '#2563EB', fontSize: 10, fontWeight: '800' }}>{item.module || 'news'}</Text>
+                            </View>
+                          </View>
+
+                          <Text style={[styles.tdText, { flex: 1.2, color: '#475569' }]}>{item.category || 'General'}</Text>
+                          
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: item.status === 'published' ? '#059669' : '#D97706', fontSize: 11, fontWeight: '800' }}>
+                              {item.status === 'published' ? '● Published' : '○ Draft'}
+                            </Text>
+                          </View>
+
+                          {/* Reassign Module Dropdown */}
+                          <View style={{ flex: 2, flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+                            {['top_stories', 'breaking_news', 'trending_news', 'news', 'reels', 'live_tv'].map(modTarget => (
+                              <Pressable
+                                key={modTarget}
+                                style={[
+                                  { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#CBD5E1', backgroundColor: '#F8FAFC' },
+                                  item.module === modTarget && { backgroundColor: '#3B82F6', borderColor: '#3B82F6' }
+                                ]}
+                                onPress={() => handleMigrateItemModule(item.id, modTarget)}
+                              >
+                                <Text style={{ fontSize: 9, fontWeight: '800', color: item.module === modTarget ? '#FFFFFF' : '#475569' }}>
+                                  {modTarget.replace('_', ' ')}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+
+                          <View style={[styles.tdActions, { flex: 1 }]}>
+                            <Pressable style={[styles.iconBtn, { backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={() => handleDeleteItem(`/api/admin/content/news/${item.id}`, item.id)}>
+                              <Text style={{ color: '#EF4444' }}>🗑️</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 2. CATEGORIES & SECTIONS MASTER TAXONOMY VIEW */}
+                {activeTab === 'categories_taxonomy' && (
+                  <View style={{ gap: 16 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View>
+                        <Text style={[styles.sectionHeader, { color: '#0F172A', fontSize: 16 }]}>
+                          🗂️ Categories & Sections Master Taxonomy ({taxonomyList.length} Categories)
+                        </Text>
+                        <Text style={{ color: '#64748B', fontSize: 12, marginTop: 2 }}>
+                          Manage groups, reorder categories, toggle public site visibility without code deploys.
+                        </Text>
+                      </View>
+                      <Pressable style={[styles.addBtn, { backgroundColor: '#3B82F6', paddingHorizontal: 16, paddingVertical: 8 }]} onPress={() => setShowAddTaxModal(true)}>
+                        <Text style={styles.addBtnText}>+ Add Category</Text>
+                      </Pressable>
+                    </View>
+
+                    <View style={styles.table}>
+                      <View style={styles.thRow}>
+                        <Text style={[styles.th, { flex: 0.5 }]}>Icon</Text>
+                        <Text style={[styles.th, { flex: 1.5 }]}>Group Name</Text>
+                        <Text style={[styles.th, { flex: 2 }]}>Category Name</Text>
+                        <Text style={[styles.th, { flex: 0.8 }]}>Sort Order</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Visibility</Text>
+                        <Text style={[styles.th, { flex: 1, textAlign: 'right' }]}>Actions</Text>
+                      </View>
+                      {taxonomyList.map((tax: any) => (
+                        <View key={tax.id} style={styles.trRow}>
+                          <Text style={{ fontSize: 16, flex: 0.5 }}>{tax.icon || '📁'}</Text>
+                          <Text style={[styles.tdText, { flex: 1.5, fontWeight: '800', color: '#1E293B' }]}>{tax.group_name}</Text>
+                          <Text style={[styles.tdText, { flex: 2, fontWeight: '700', color: '#2563EB' }]}>{tax.category_name}</Text>
+                          <Text style={[styles.tdText, { flex: 0.8 }]}>#{tax.sort_order}</Text>
+                          
+                          <Pressable
+                            style={{ flex: 1 }}
+                            onPress={() => handleToggleTaxonomyVisibility(tax.id, tax.is_visible === 1)}
+                          >
+                            <View style={{ backgroundColor: tax.is_visible === 1 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' }}>
+                              <Text style={{ color: tax.is_visible === 1 ? '#059669' : '#DC2626', fontSize: 10, fontWeight: '900' }}>
+                                {tax.is_visible === 1 ? '👁️ VISIBLE' : '🙈 HIDDEN'}
+                              </Text>
+                            </View>
+                          </Pressable>
+
+                          <View style={[styles.tdActions, { flex: 1 }]}>
+                            <Pressable style={[styles.iconBtn, { backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={() => handleDeleteTaxonomyCategory(tax.id, tax.category_name)}>
+                              <Text style={{ color: '#EF4444' }}>🗑️</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 3. SITE CONTENT & UI LABELS MANAGER VIEW */}
+                {activeTab === 'site_labels' && (
+                  <View style={{ gap: 16 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View>
+                        <Text style={[styles.sectionHeader, { color: '#0F172A', fontSize: 16 }]}>
+                          🏷️ CMS Site Content / Labels & Breaking News Ticker Strings ({uiLabelsList.length} Labels)
+                        </Text>
+                        <Text style={{ color: '#64748B', fontSize: 12, marginTop: 2 }}>
+                          Edit section titles, navigation labels, and breaking news ticker items live on the public site.
+                        </Text>
+                      </View>
+                      <Pressable style={[styles.addBtn, { backgroundColor: '#10B981', paddingHorizontal: 16, paddingVertical: 8 }]} onPress={() => setShowAddLabelModal(true)}>
+                        <Text style={styles.addBtnText}>+ Add Ticker Item / Label</Text>
+                      </Pressable>
+                    </View>
+
+                    <View style={styles.table}>
+                      <View style={styles.thRow}>
+                        <Text style={[styles.th, { flex: 1.5 }]}>CMS Key</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Type</Text>
+                        <Text style={[styles.th, { flex: 3 }]}>Label / Ticker Text Value</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Status</Text>
+                        <Text style={[styles.th, { flex: 1, textAlign: 'right' }]}>Actions</Text>
+                      </View>
+                      {uiLabelsList.map((item: any) => (
+                        <View key={item.key} style={styles.trRow}>
+                          <Text style={[styles.tdText, { flex: 1.5, fontWeight: '800', color: '#0F172A' }]}>{item.key}</Text>
+                          
+                          <View style={{ flex: 1 }}>
+                            <View style={{ backgroundColor: item.label_type === 'ticker_item' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, alignSelf: 'flex-start' }}>
+                              <Text style={{ color: item.label_type === 'ticker_item' ? '#DC2626' : '#2563EB', fontSize: 10, fontWeight: '900' }}>
+                                {item.label_type}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <TextInput
+                            style={[styles.input, { flex: 3, height: 36, marginBottom: 0, fontSize: 12, color: '#0F172A', backgroundColor: '#F8FAFC', borderColor: '#CBD5E1' }]}
+                            defaultValue={item.value}
+                            onEndEditing={(e) => {
+                              const newVal = e.nativeEvent.text;
+                              if (newVal !== item.value) {
+                                api.request(`/api/admin/ui-labels/${item.key}`, {
+                                  method: 'PUT',
+                                  body: JSON.stringify({ value: newVal })
+                                }).then(() => loadTabContent());
+                              }
+                            }}
+                          />
+
+                          <Pressable style={{ flex: 1 }} onPress={() => handleToggleLabelActive(item.key, item.is_active === 1)}>
+                            <Text style={{ color: item.is_active === 1 ? '#059669' : '#94A3B8', fontSize: 11, fontWeight: '800' }}>
+                              {item.is_active === 1 ? '● ACTIVE' : '○ INACTIVE'}
+                            </Text>
+                          </Pressable>
+
+                          <View style={[styles.tdActions, { flex: 1 }]}>
+                            <Pressable style={[styles.iconBtn, { backgroundColor: 'rgba(239,68,68,0.15)' }]} onPress={() => handleDeleteUiLabel(item.key)}>
+                              <Text style={{ color: '#EF4444' }}>🗑️</Text>
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 4. NEWS STORIES CRUD */}
                 {activeTab === 'news' && (
                   <View>
                     <View style={styles.actionHeader}>
@@ -1930,7 +2311,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                         if (sec.tab === 'breakingNews') return n.is_breaking === 1 || n.isBreaking;
                         if (sec.tab === 'trendingNews') return true;
                         if (sec.tab === 'devotional') {
-                          return catLower === 'devotional' || DEVOTIONAL_SUBCATEGORIES.some(ds => ds.toLowerCase() === catLower) || /temple|devotional|god|pooja|ritual|bhagavad|gita|kashi|prashad|darshan|sloka|mantra|divine|spiritual/.test(text);
+                          return catLower === 'devotional' || DEVOTIONAL_SUBCATEGORIES.some(ds => ds.toLowerCase() === catLower) || /\b(temple|devotional|god|pooja|ritual|bhagavad|gita|kashi|prashad|darshan|sloka|mantra|divine|spiritual)\b/i.test(text);
                         }
                         if (sec.tab === 'sports') {
                           return catLower === 'sports' || /cricket|football|sports|match|stadium|ipl|tennis|badminton|olympics|trophy|champion|messi|ronaldo|kohli|rohit|dhoni|wicket|runs|goal|score/.test(text);
@@ -2461,23 +2842,23 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 18, gap: 12 }}>
-              <Text style={styles.label}>1. Select Content Type *</Text>
+              <Text style={styles.label}>1. Select Target Upload Module (Mandatory Single-Module Isolation) *</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
                 {[
-                  { id: 'news', label: '📰 News Article' },
-                  { id: 'top_story', label: '⭐ Top Story' },
-                  { id: 'breaking', label: '🚨 Breaking News' },
-                  { id: 'reel', label: '🎬 Video Reel' },
-                  { id: 'video', label: '📹 Video Highlight' },
-                  { id: 'gallery', label: '🖼️ Image Gallery' },
-                  { id: 'live_tv_thumb', label: '📺 Live TV Thumbnail' },
+                  { id: 'breaking_news', label: '🚨 Breaking News (Ticker)' },
+                  { id: 'top_stories', label: '⭐ Top Stories' },
+                  { id: 'trending_news', label: '⚡ Trending News' },
+                  { id: 'news', label: '📰 News Hub (Region/District)' },
+                  { id: 'reels', label: '🎬 Video Reels' },
+                  { id: 'live_tv', label: '📺 Live TV Channels' },
+                  { id: 'user_streams', label: '📡 User Streams & Live' },
                 ].map(t => (
                   <Pressable
                     key={t.id}
                     style={[styles.filterPill, globalUploadType === t.id && styles.filterPillActive]}
                     onPress={() => setGlobalUploadType(t.id as any)}
                   >
-                    <Text style={styles.filterPillText}>{t.label}</Text>
+                    <Text style={[styles.filterPillText, globalUploadType === t.id && { color: '#fff', fontWeight: '900' }]}>{t.label}</Text>
                   </Pressable>
                 ))}
               </View>

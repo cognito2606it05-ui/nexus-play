@@ -1132,20 +1132,26 @@ export default function NewsScreen({ route }: { route?: any }) {
     setShowUploadModal(true);
   };
 
-  const resetNewsUploadForm = () => {
+  const openAddNewsModal = (customCategory?: string) => {
     setEditingArticleId(null);
     setUploadTitle('');
     setUploadSummary('');
     setUploadBody('');
-    setUploadCategory('Politics');
+    
+    // Dynamically pre-select active sub-category, state, and district on screen!
+    const targetCat = customCategory || (category !== 'All' ? category : 'General');
+    setUploadCategory(targetCat);
+    
+    const activeState = selectedState !== 'All' ? selectedState : 'Andhra Pradesh';
+    setUploadState(activeState);
+    setUploadRegion(activeState === 'Andhra Pradesh' ? 'AP' : activeState === 'Telangana' ? 'Telangana' : activeState === 'Delhi' ? 'Delhi' : 'AP');
+    setUploadDistrict(selectedDistrict);
+    
     setUploadSubcategory('');
-    setUploadState('Andhra Pradesh');
-    setUploadRegion('AP');
-    setUploadDistrict('All Districts');
     setUploadCity('');
-    setUploadLocation('');
+    setUploadLocation(selectedDistrict !== 'All Districts' ? selectedDistrict : activeState);
     setUploadLanguage('English');
-    setUploadReporter('');
+    setUploadReporter(user?.displayName || activeProfile?.name || 'NEXUS Network');
     setUploadIsBreaking(false);
     setUploadIsFeatured(false);
     setUploadPriority('0');
@@ -1156,16 +1162,24 @@ export default function NewsScreen({ route }: { route?: any }) {
     setUploadImageData('');
     setUploadVideoFileName('');
     setUploadVideoData('');
+    setShowUploadModal(true);
+  };
+
+  const resetNewsUploadForm = () => {
+    openAddNewsModal();
   };
 
   // Submit News Upload Form (Create or Update)
-  const handleUploadSubmit = async (forcedStatus?: 'published' | 'draft') => {
+  const handleUploadSubmit = async (forcedStatus?: 'published' | 'draft' | any) => {
     if (!uploadTitle.trim() || !uploadBody.trim()) {
       alert('Title and Body are required');
       return;
     }
     
-    const finalStatus = forcedStatus || uploadStatus;
+    const validStatus = (typeof forcedStatus === 'string' && (forcedStatus === 'published' || forcedStatus === 'draft'))
+      ? forcedStatus
+      : (typeof uploadStatus === 'string' ? uploadStatus : 'published');
+    const finalStatus = validStatus;
 
     setScanProgress(0);
     setScanStatus('Initiating secure link...');
@@ -1691,87 +1705,41 @@ export default function NewsScreen({ route }: { route?: any }) {
 
   return (
     <View style={styles.fill}>
-      {isDesktop && (
-        <AppHeader 
-          onPressAvatar={() => navigation.navigate('Profile')} 
-          onSearch={setSearchQuery}
-          onRefresh={loadTabData}
-          onOpenAssistant={() => setShowAssistant(true)}
-        />
-      )}
-      {!isDesktop && (
-        <View style={{
-          position: Platform.OS === 'web' ? 'fixed' : 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 56 + (insets?.top ?? 0),
-          paddingTop: insets?.top ?? 0,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
-          zIndex: 9999,
-          ...Platform.select({
-            web: {
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-            }
-          }) as any,
-        }}>
-          <Image
-            source={require('../../assets/nexuslogo.png')}
-            style={{ width: 85, height: 26 }}
-            resizeMode="contain"
-          />
+      <AppHeader 
+        onPressAvatar={() => navigation.navigate('Profile')} 
+        onSearch={setSearchQuery}
+        onRefresh={loadTabData}
+        onOpenAssistant={() => setShowAssistant(true)}
+      />
+
+      {/* Dynamic tab action buttons */}
+      {(selectedTab === 'News' || selectedTab === 'Reels' || selectedTab === 'Posts') && (
+        <View style={styles.headerRow}>
+          {selectedTab === 'News' && (
+            <HoverPressable style={styles.uploadHeaderBtn} onPress={() => openAddNewsModal()}>
+              <Text style={styles.uploadHeaderBtnText}>
+                ＋ <Translate text={category !== 'All' ? `Add News to ${category}` : "Add News"} />
+              </Text>
+            </HoverPressable>
+          )}
+
+          {selectedTab === 'Reels' && (
+            <HoverPressable style={styles.uploadHeaderBtn} onPress={() => setShowUploadReelModal(true)}>
+              <Text style={styles.uploadHeaderBtnText}>＋ <Translate text="Upload Reel" /></Text>
+            </HoverPressable>
+          )}
+
+          {selectedTab === 'Posts' && (
+            <HoverPressable style={styles.uploadHeaderBtn} onPress={() => setShowCreatePostModal(true)}>
+              <Text style={styles.uploadHeaderBtnText}>＋ <Translate text="Share Update" /></Text>
+            </HoverPressable>
+          )}
         </View>
       )}
 
-      {/* Top Header Row with dynamic tab add buttons */}
-      <View style={styles.headerRow}>
-        <Text style={styles.header}>NEXUS Hub</Text>
-        
-        {selectedTab === 'News' && (
-          <HoverPressable style={styles.uploadHeaderBtn} onPress={() => setShowUploadModal(true)}>
-            <Text style={styles.uploadHeaderBtnText}>＋ <Translate text="Add News" /></Text>
-          </HoverPressable>
-        )}
-
-        {selectedTab === 'Reels' && (
-          <HoverPressable style={styles.uploadHeaderBtn} onPress={() => setShowUploadReelModal(true)}>
-            <Text style={styles.uploadHeaderBtnText}>＋ <Translate text="Upload Reel" /></Text>
-          </HoverPressable>
-        )}
-
-        {selectedTab === 'Posts' && (
-          <HoverPressable style={styles.uploadHeaderBtn} onPress={() => setShowCreatePostModal(true)}>
-            <Text style={styles.uploadHeaderBtnText}>＋ <Translate text="Share Update" /></Text>
-          </HoverPressable>
-        )}
-      </View>
-
       <BreakingNewsTicker />
 
-      {/* Horizontal Category Tab Bar */}
-      <View style={styles.newsGlassTabContainer}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.newsGlassTabScroll}>
-          {(['News', 'Reels', 'Past Live Sessions', 'Posts', 'Saved Live Recordings'] as const).map((tab) => (
-            <Pressable
-              key={tab}
-              style={[styles.newsGlassTab, selectedTab === tab && styles.newsGlassTabActive]}
-              onPress={() => {
-                setSelectedTab(tab);
-                setExpanded(null);
-              }}
-            >
-              <Text style={[styles.newsGlassTabText, selectedTab === tab && styles.newsGlassTabTextActive]}>
-                <Translate text={tab} />
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
+
 
       {/* RENDER DYNAMIC TABS CONTENT */}
 
@@ -1866,8 +1834,30 @@ export default function NewsScreen({ route }: { route?: any }) {
         <View style={{ flex: 1, zIndex: 1 }}>
           {selectedTab === 'News' && (
             filteredNews.length === 0 ? (
-              <View style={styles.center}>
-                <Text style={styles.emptyText}>No news articles found in this filter.</Text>
+              <View style={[styles.center, { padding: 32, gap: 12 }]}>
+                <Text style={{ fontSize: 32 }}>📰</Text>
+                <Text style={styles.emptyText}>
+                  No news articles published yet in {category !== 'All' ? `"${category}"` : 'this filter'}{selectedDistrict !== 'All Districts' ? ` (${selectedDistrict})` : selectedState !== 'All' ? ` (${selectedState})` : ''}.
+                </Text>
+                <HoverPressable
+                  style={{
+                    backgroundColor: colors.primary,
+                    paddingHorizontal: 20,
+                    paddingVertical: 10,
+                    borderRadius: 20,
+                    marginTop: 8,
+                    shadowColor: colors.primary,
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.3,
+                    shadowRadius: 8,
+                    elevation: 4
+                  }}
+                  onPress={() => openAddNewsModal()}
+                >
+                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>
+                    ＋ Add News to {category !== 'All' ? category : 'this Category'}
+                  </Text>
+                </HoverPressable>
               </View>
             ) : (
               <FlatList
@@ -1890,7 +1880,13 @@ export default function NewsScreen({ route }: { route?: any }) {
                         setSelectedArticle(item);
                       }}
                     >
-                      <View style={{ position: 'relative', width: imgW, height: imgH }}>
+                      <Pressable 
+                        style={{ position: 'relative', width: imgW, height: imgH, cursor: 'pointer' } as any}
+                        onPress={() => {
+                          api.viewNews(item.id).catch(() => {});
+                          setSelectedArticle(item);
+                        }}
+                      >
                         <View style={[
                           styles.thumb,
                           { width: imgW, height: imgH, overflow: 'hidden' },
@@ -1910,7 +1906,7 @@ export default function NewsScreen({ route }: { route?: any }) {
                           )}
                           <BlurRegionsOverlay regions={item.blurRegions} />
                         </View>
-                      </View>
+                      </Pressable>
 
                       <View style={styles.articleBody}>
                         {item.needsBlur && item.blurReason && (
@@ -2629,7 +2625,7 @@ export default function NewsScreen({ route }: { route?: any }) {
 
                 <HoverPressable
                   style={[styles.submitBtn, (!uploadTitle.trim() || !uploadBody.trim()) && styles.submitBtnDisabled]}
-                  onPress={handleUploadSubmit}
+                  onPress={() => handleUploadSubmit()}
                   disabled={uploading || !uploadTitle.trim() || !uploadBody.trim()}
                 >
                   {uploading ? (
@@ -3107,7 +3103,7 @@ export default function NewsScreen({ route }: { route?: any }) {
                 <ScrollView contentContainerStyle={{ padding: 24, position: 'relative', minHeight: 400 }}>
                   {selectedArticle.imageUrl && (
                     <Pressable 
-                      style={{ position: 'relative', width: '100%', minHeight: 320, maxHeight: 580, borderRadius: 14, overflow: 'hidden', marginBottom: 20, backgroundColor: '#090D1A', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, cursor: 'zoom-in' as any }}
+                      style={{ position: 'relative', width: '100%', height: 320, maxHeight: 320, borderRadius: 14, overflow: 'hidden', marginBottom: 16, backgroundColor: colors.surfaceAlt, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border, cursor: 'zoom-in' as any }}
                       onPress={() => {
                         const now = Date.now();
                         if (now - lastTapRef.current < 350 || Platform.OS === 'web') {
@@ -3119,7 +3115,7 @@ export default function NewsScreen({ route }: { route?: any }) {
                     >
                       <Image 
                         source={{ uri: selectedArticle.imageUrl }} 
-                        style={{ width: '100%', height: 480, resizeMode: 'contain' }} 
+                        style={{ width: '100%', height: '100%', resizeMode: 'cover' }} 
                         blurRadius={selectedArticle.needsBlur ? 35 : 0}
                       />
                       <View style={{ position: 'absolute', bottom: 12, right: 12, backgroundColor: 'rgba(15, 23, 42, 0.85)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255, 255, 255, 0.15)', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -3335,11 +3331,11 @@ const getStyles = (colors: any, insets: any, width: number) => {
     },
     headerRow: {
       paddingHorizontal: 16,
-      paddingTop: isDesktop ? (Math.max((insets?.top ?? 0), 12) + 96) : (Math.max((insets?.top ?? 0), 12) + 56),
-      paddingBottom: 8,
+      paddingTop: Math.max((insets?.top ?? 0), 12) + 74,
+      paddingBottom: 4,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-end',
     },
   header: { color: colors.text, fontSize: 24, fontWeight: '900' },
   uploadHeaderBtn: {
@@ -4106,16 +4102,16 @@ const getStyles = (colors: any, insets: any, width: number) => {
     padding: Platform.OS === 'web' ? 20 : 10,
   },
   articleModalContainer: {
-    width: '100%',
-    height: Platform.OS === 'web' ? '92vh' : '92%',
-    maxHeight: '92%',
+    width: '90%',
+    maxWidth: 720,
+    height: Platform.OS === 'web' ? '85vh' : '85%',
+    maxHeight: '85%',
     backgroundColor: colors.bg,
-    borderRadius: 16,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.border,
     flexDirection: 'column',
-    maxWidth: 1200,
   },
   articleModalHeader: {
     flexDirection: 'row',

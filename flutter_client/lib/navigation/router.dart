@@ -106,8 +106,7 @@ final GoRouter routerConfig = GoRouter(
 
     // 2. If logged in but no profile is active, redirect to profile gate
     if (isLoggedIn && !hasProfile) {
-      if (goingToProfileGate || goingToLogin) return null;
-      return '/profiles-gate';
+      return goingToProfileGate ? null : '/profiles-gate';
     }
 
     // 3. If logged in and profile is active, prevent going to login/profiles-gate

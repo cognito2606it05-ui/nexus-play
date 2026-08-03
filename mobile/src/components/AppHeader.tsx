@@ -402,7 +402,6 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
   }, [showDropdown]);
 
   const toggleDropdown = () => {
-    setShowDropdown(!showDropdown);
     onPressAvatar?.();
   };
 
@@ -593,6 +592,7 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
               <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>👑 Admin</Text>
             </Pressable>
 
+
             {/* Language Translator */}
             <HoverPressable 
               style={[styles.iconCircleBtn, { borderColor: isDark ? '#334155' : '#E2E8F0' }]}
@@ -771,86 +771,7 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
           </View>
         )}
 
-        {/* USER PROFILE DROPDOWN MENU */}
-        {showDropdown && (
-          <Animated.View
-            style={[
-              styles.dropdownCard,
-              {
-                backgroundColor: isDark ? '#1e293b' : '#ffffff',
-                borderColor: isDark ? '#334155' : '#e2e8f0',
-                opacity: dropdownAnim,
-                transform: [
-                  { scale: dropdownAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) },
-                  { translateY: dropdownAnim.interpolate({ inputRange: [0, 1], outputRange: [-10, 0] }) },
-                ]
-              }
-            ]}
-          >
-            <View style={styles.dropdownHeader}>
-              <View style={styles.dropdownLargeAvatarContainer}>
-                <Image source={{ uri: activeProfile?.avatarUrl || 'https://api.dicebear.com/7.x/bottts/png' }} style={styles.dropdownLargeAvatar} />
-                {activeProfile?.subscribed && <View style={styles.dropdownCrown}><Text style={{ fontSize: 12 }}>👑</Text></View>}
-              </View>
-              <View style={styles.dropdownUserDetails}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Text style={[styles.dropdownFullName, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>{activeProfile?.name}</Text>
-                  {activeProfile?.subscribed && <View style={styles.dropdownVerifiedTick}><Text style={{ color: '#fff', fontSize: 8 }}>✓</Text></View>}
-                </View>
-                <Text style={[styles.dropdownUsername, { color: isDark ? '#94A3B8' : '#64748B' }]}>@{activeProfile?.name?.toLowerCase().replace(/\s+/g, '')}</Text>
-              </View>
-            </View>
 
-            {/* Profile Statistics Grid */}
-            <View style={[styles.dropdownStatsGrid, { borderColor: isDark ? '#334155' : '#e2e8f0' }]}>
-              <View style={styles.dropdownStatItem}>
-                <Text style={[styles.dropdownStatVal, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>{stats.followers}</Text>
-                <Text style={styles.dropdownStatLabel}>{t("Followers")}</Text>
-              </View>
-              <View style={styles.dropdownStatItem}>
-                <Text style={[styles.dropdownStatVal, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>{stats.following}</Text>
-                <Text style={styles.dropdownStatLabel}>{t("Following")}</Text>
-              </View>
-              <View style={styles.dropdownStatItem}>
-                <Text style={[styles.dropdownStatVal, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>{stats.posts}</Text>
-                <Text style={styles.dropdownStatLabel}>{t("Posts")}</Text>
-              </View>
-            </View>
-
-            {/* Options List */}
-            <View style={styles.dropdownOptions}>
-              <Pressable style={styles.dropdownOptionRow} onPress={() => handleDropdownNavigate('Profile')}>
-                <Text style={styles.dropdownOptionIcon}>👤</Text>
-                <Text style={[styles.dropdownOptionText, { color: isDark ? '#E2E8F0' : '#334155' }]}>{t("View Profile")}</Text>
-              </Pressable>
-
-              <Pressable style={styles.dropdownOptionRow} onPress={() => handleDropdownNavigate('Profile', { initialTab: 'saved' })}>
-                <Text style={styles.dropdownOptionIcon}>🔖</Text>
-                <Text style={[styles.dropdownOptionText, { color: isDark ? '#E2E8F0' : '#334155' }]}>{t("Saved News")}</Text>
-              </Pressable>
-
-              <Pressable style={styles.dropdownOptionRow} onPress={() => alert(t('Added to Watch Later.'))}>
-                <Text style={styles.dropdownOptionIcon}>🕒</Text>
-                <Text style={[styles.dropdownOptionText, { color: isDark ? '#E2E8F0' : '#334155' }]}>{t("Watch Later")}</Text>
-              </Pressable>
-
-              <Pressable style={styles.dropdownOptionRow} onPress={() => alert(t('Viewing history.'))}>
-                <Text style={styles.dropdownOptionIcon}>📜</Text>
-                <Text style={[styles.dropdownOptionText, { color: isDark ? '#E2E8F0' : '#334155' }]}>{t("History")}</Text>
-              </Pressable>
-
-              <Pressable style={styles.dropdownOptionRow} onPress={() => handleDropdownNavigate('Profile', { editMode: true })}>
-                <Text style={styles.dropdownOptionIcon}>⚙️</Text>
-                <Text style={[styles.dropdownOptionText, { color: isDark ? '#E2E8F0' : '#334155' }]}>{t("Settings")}</Text>
-              </Pressable>
-
-              <Pressable style={styles.dropdownOptionRow} onPress={signOut}>
-                <Text style={styles.dropdownOptionIcon}>🚪</Text>
-                <Text style={[styles.dropdownOptionText, { color: '#EF4444' }]}>{t("Logout")}</Text>
-              </Pressable>
-            </View>
-          </Animated.View>
-        )}
 
         {/* MOBILE MENU OVERLAY hamburger */}
         {showMobileMenu && (

@@ -391,6 +391,23 @@ export const api = {
   getStudioChatMessages: () => request<{ success: boolean; data: any[] }>('/api/studio/chat'),
   postStreamTranscript: (id: string, text: string, elapsedSecs: number) =>
     request<{ success: boolean }>(`/api/streams/${id}/transcript`, { method: 'POST', body: JSON.stringify({ text, elapsedSecs }) }),
+
+  // room live (debate mode)
+  createRoom: (body: { roomName: string; topic: string; description?: string; category?: string; password?: string; maxParticipants?: number; visibility?: string }) =>
+    request<{ success: boolean; data: any }>('/api/rooms/create', { method: 'POST', body: JSON.stringify(body) }),
+  joinRoom: (roomId: string, password?: string, rolePreference?: string) =>
+    request<{ success: boolean; data: { room: any; role: string; participants: any[] } }>('/api/rooms/join', {
+      method: 'POST',
+      body: JSON.stringify({ roomId, password, rolePreference })
+    }),
+  getActiveRooms: () =>
+    request<{ success: boolean; data: any[] }>('/api/rooms/active'),
+  getRoomDetails: (id: string) =>
+    request<{ success: boolean; data: any }>(`/api/rooms/${id}`),
+  endRoom: (id: string) =>
+    request<{ success: boolean; message: string }>(`/api/rooms/${id}/end`, { method: 'POST' }),
+  leaveRoom: (id: string) =>
+    request<{ success: boolean }>(`/api/rooms/${id}/leave`, { method: 'POST' }),
 };
 
 export function getEventsUrl(): string {

@@ -73,7 +73,7 @@ function timeAgo(iso: string) {
   return h < 24 ? `${h}h ago` : `${Math.round(h / 24)}d ago`;
 }
 
-function MoviePlayer({ uri, styles }: { uri: string; styles: any }) {
+function MoviePlayer({ uri, styles }: { uri: string; styles?: any }) {
   if (Platform.OS === 'web' && (uri.includes('youtube.com') || uri.includes('youtu.be'))) {
     // Extract video ID
     let videoId = '';
@@ -114,11 +114,23 @@ function MoviePlayer({ uri, styles }: { uri: string; styles: any }) {
   // Fallback for native or standard non-youtube videos
   if (uri.includes('youtube.com') || uri.includes('youtu.be')) {
     return (
-      <View style={[styles.modalVideo, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]}>
+      <View style={[styles?.modalVideo, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }]}>
         <Text style={{ color: '#fff', textAlign: 'center', padding: 20 }}>
           YouTube playback is supported in Web interface.
         </Text>
       </View>
+    );
+  }
+
+  if (Platform.OS === 'web') {
+    return (
+      <video
+        src={uri}
+        style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000' }}
+        controls
+        autoPlay
+        playsInline
+      />
     );
   }
 
@@ -127,7 +139,7 @@ function MoviePlayer({ uri, styles }: { uri: string; styles: any }) {
     p.muted = false;
     p.play();
   });
-  return <VideoView player={player} style={styles.modalVideo} contentFit="contain" />;
+  return <VideoView player={player} style={styles?.modalVideo || { width: '100%', height: '100%' }} contentFit="contain" />;
 }
 
 const ALL_CATEGORIES_TAXONOMY = [
@@ -1442,49 +1454,19 @@ export default function HomeScreen() {
       />
       <ThreeDForestBg />
       
-      {isDesktop && (
-        <AppHeader 
-          scrollY={scrollY} 
-          onPressAvatar={() => setShowProfileMenu(true)} 
-          onSearch={setSearchQuery}
-          onRefresh={onRefresh}
-          onCreatePost={() => setShowCreatePostModal(true)}
-          onOpenAssistant={() => setShowAssistant(true)}
-        />
-      )}
-      {!isDesktop && (
-        <View style={{
-          position: Platform.OS === 'web' ? 'fixed' : 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 56 + (insets?.top ?? 0),
-          paddingTop: insets?.top ?? 0,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
-          zIndex: 9999,
-          ...Platform.select({
-            web: {
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-            }
-          }) as any,
-        }}>
-          <Image
-            source={require('../../assets/nexuslogo.png')}
-            style={{ width: 85, height: 26 }}
-            resizeMode="contain"
-          />
-        </View>
-      )}
+      <AppHeader 
+        scrollY={scrollY} 
+        onPressAvatar={() => setShowProfileMenu(true)} 
+        onSearch={setSearchQuery}
+        onRefresh={onRefresh}
+        onCreatePost={() => setShowCreatePostModal(true)}
+        onOpenAssistant={() => setShowAssistant(true)}
+      />
 
       <Animated.ScrollView
         style={[styles.container, { zIndex: 1 }]}
         contentContainerStyle={{ 
-          paddingTop: isDesktop ? (Math.max((insets?.top ?? 0), 12) + 96) : (Math.max((insets?.top ?? 0), 12) + 56), 
+          paddingTop: Math.max((insets?.top ?? 0), 12) + 74, 
           paddingBottom: Math.max((insets?.bottom ?? 0), 12) + 80,
           flexGrow: 1,
         }}
@@ -1578,6 +1560,23 @@ export default function HomeScreen() {
                   <Text style={styles.storyLabel} numberOfLines={1}>{stream.name}</Text>
                 </HoverPressable>
               ))}
+
+              {/* Room Live Debate Room Launcher Bubble */}
+              <HoverPressable
+                style={styles.storyItem}
+                onPress={() => navigation.navigate('RoomLive')}
+              >
+                <View style={styles.storyRingContainer}>
+                  <View style={[styles.storyRingReel, { borderColor: '#3B82F6' }]} />
+                  <View style={[styles.storyAvatarInside, { backgroundColor: '#3B82F6' }]}>
+                    <Text style={[styles.storyAvatarText, { fontSize: 18 }]}>🎙️</Text>
+                  </View>
+                  <View style={[styles.storyLiveBadge, { backgroundColor: '#3B82F6' }]}>
+                    <Text style={styles.storyLiveBadgeText}>DEBATE</Text>
+                  </View>
+                </View>
+                <Text style={styles.storyLabel} numberOfLines={1}>Room Live</Text>
+              </HoverPressable>
 
               {/* Reels Shortcuts */}
               {reels.map((reel) => (
@@ -2574,14 +2573,16 @@ export default function HomeScreen() {
       <View style={styles.modOverlay}>
         <View style={{
           width: '90%',
-          maxWidth: 600,
+          maxWidth: 550,
+          maxHeight: Platform.OS === 'web' ? '85vh' : '85%',
           backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
           borderRadius: 24,
           borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
           borderWidth: 1.5,
-          height: '80%',
           padding: 0,
           overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
         }}>
           {/* Header */}
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)', backgroundColor: isDark ? '#1E293B' : '#F8FAFC' }}>
@@ -2599,19 +2600,31 @@ export default function HomeScreen() {
           {/* Scrollable Content */}
           <ScrollView style={{ flex: 1, backgroundColor: isDark ? '#0F172A' : '#FFFFFF' }} contentContainerStyle={{ padding: 20 }}>
             {selectedContent?.type === 'reel' && (
-              <View>
-                <View style={{ width: '100%', aspectRatio: 0.6, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', marginBottom: 16 }}>
+              <View style={{ alignItems: 'center' }}>
+                <View style={{ 
+                  width: '100%', 
+                  height: 380, 
+                  maxHeight: 380,
+                  borderRadius: 16, 
+                  overflow: 'hidden', 
+                  backgroundColor: '#000', 
+                  marginBottom: 16,
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
                   <MoviePlayer uri={selectedContent.videoUrl || selectedContent.video_file || ''} styles={{ modalVideo: { width: '100%', height: '100%' } }} />
                 </View>
-                <Text style={{ fontSize: 18, fontWeight: '900', color: isDark ? '#F8FAFC' : '#0F172A', fontFamily: 'Outfit', marginBottom: 8 }}>
-                  {selectedContent.title}
-                </Text>
-                <Text style={{ fontSize: 13, color: isDark ? '#94A3B8' : '#64748B', fontFamily: 'Outfit', marginBottom: 12 }}>
-                  by {selectedContent.creator?.handle || 'creator'} · {selectedContent.stats?.views || 0} Views
-                </Text>
-                <Text style={{ fontSize: 14, color: isDark ? '#CBD5E1' : '#334155', fontFamily: 'Outfit', lineHeight: 20 }}>
-                  {selectedContent.description}
-                </Text>
+                <View style={{ width: '100%' }}>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: isDark ? '#F8FAFC' : '#0F172A', fontFamily: 'Outfit', marginBottom: 8 }}>
+                    {selectedContent.title}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: isDark ? '#94A3B8' : '#64748B', fontFamily: 'Outfit', marginBottom: 12 }}>
+                    by {selectedContent.creator?.handle || 'creator'} · {selectedContent.stats?.views || 0} Views
+                  </Text>
+                  <Text style={{ fontSize: 14, color: isDark ? '#CBD5E1' : '#334155', fontFamily: 'Outfit', lineHeight: 20 }}>
+                    {selectedContent.description}
+                  </Text>
+                </View>
               </View>
             )}
 

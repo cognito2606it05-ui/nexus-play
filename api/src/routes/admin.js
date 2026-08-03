@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { mediaUrl, PROJECT_ROOT, config } from '../config.js';
 import { randomUUID } from 'node:crypto';
 import { getIo } from '../services/relay.js';
+import { moderateUploadContent } from '../moderation.js';
 
 export const router = Router();
 router.use((req, res, next) => {
@@ -121,20 +122,34 @@ Keep your response extremely professional, intelligent, and focused on growth. R
       console.error('Failed to fetch AI insights from Gemini:', e);
     }
 
+    // Calculate physical DB size & memory footprint
+    let dbSizeMB = '0.00 MB';
+    try {
+      if (existsSync(config.dbFile)) {
+        const stats = statSync(config.dbFile);
+        dbSizeMB = (stats.size / (1024 * 1024)).toFixed(2) + ' MB';
+      }
+    } catch (e) {}
+
+    const memUsageMB = (process.memoryUsage().rss / (1024 * 1024)).toFixed(1) + ' MB';
+    const pendingReports = db.prepare("SELECT COUNT(*) AS n FROM moderation_reports WHERE status = 'pending'").get().n;
+
     res.json({
       metrics: {
         totalUsers,
-        activeUsers: Math.round(totalUsers * 0.85),
+        activeUsers: totalUsers,
         premiumSubscribers,
-        revenue,
+        revenue: `$${(premiumSubscribers * 9.99).toFixed(2)}`,
         newsPublished,
         liveStreams: totalStreams,
         totalReels,
         totalPosts,
         totalComments,
-        totalReports,
+        totalReports: pendingReports,
         totalCategories,
         totalAdmins,
+        dbSize: dbSizeMB,
+        memUsage: memUsageMB,
         systemHealth: '100% Operational',
         engagement: {
           comments: totalComments,
@@ -391,16 +406,17 @@ router.post('/admins', (req, res) => {
 // GET /api/admin/content/news - Combined multi-table content for side panel module managers
 router.get('/content/news', (req, res) => {
   try {
-    const newsRows = db.prepare('SELECT id, title, title AS headline, summary AS description, body AS article, category, subcategory, region, district, published_at, created_at FROM news ORDER BY created_at DESC').all();
-    const topStoryRows = db.prepare('SELECT id, headline AS title, headline, description, article, category, subcategory, location AS region, location AS district, publish_date AS published_at, created_at FROM top_stories ORDER BY created_at DESC').all();
-    const streamRows = db.prepare('SELECT id, stream_title AS title, stream_title AS headline, description, category, location AS region, location AS district, started_at AS published_at, created_at FROM user_streams ORDER BY started_at DESC').all();
-    const activeStreamRows = db.prepare('SELECT id, stream_title AS title, stream_title AS headline, description, category, started_at AS published_at, created_at FROM live_streams ORDER BY started_at DESC').all();
+    const newsRows = db.prepare('SELECT id, title, title AS headline, summary AS description, body AS article, category, subcategory, region, district, published_at, published_at AS created_at FROM news ORDER BY published_at DESC').all();
+    const topStoryRows = db.prepare('SELECT id, headline AS title, headline, description, article, category, subcategory, NULL AS region, NULL AS district, publish_date AS published_at, created_at FROM top_stories ORDER BY created_at DESC').all();
+    const postRows = db.prepare('SELECT id, content AS title, content AS headline, content AS description, content AS article, category, NULL AS subcategory, location AS region, location AS district, created_at AS published_at, created_at FROM posts ORDER BY created_at DESC').all();
+    const streamRows = db.prepare('SELECT id, stream_title AS title, stream_title AS headline, description, description AS article, category, NULL AS subcategory, location AS region, location AS district, started_at AS published_at, created_at FROM user_streams ORDER BY started_at DESC').all();
+    const activeStreamRows = db.prepare('SELECT id, title, title AS headline, NULL AS description, NULL AS article, category, NULL AS subcategory, location AS region, location AS district, started_at AS published_at, started_at AS created_at FROM live_streams ORDER BY started_at DESC').all();
     let reelRows = [];
     try {
-      reelRows = db.prepare('SELECT id, caption AS title, caption AS headline, description, category, created_at AS published_at, created_at FROM reels ORDER BY id DESC').all();
+      reelRows = db.prepare('SELECT id, title, title AS headline, description, description AS article, "Reels" AS category, NULL AS subcategory, location AS region, location AS district, NULL AS published_at, NULL AS created_at FROM reels ORDER BY id DESC').all();
     } catch (e) {}
 
-    const allItems = [...newsRows, ...topStoryRows, ...streamRows, ...activeStreamRows, ...reelRows];
+    const allItems = [...newsRows, ...topStoryRows, ...postRows, ...streamRows, ...activeStreamRows, ...reelRows];
 
     // Deduplicate by ID and auto-categorize
     const seen = new Set();
@@ -412,12 +428,12 @@ router.get('/content/news', (req, res) => {
       let cat = item.category || 'General';
       const text = `${item.title || ''} ${item.headline || ''} ${item.description || ''}`.toLowerCase();
       if (cat === 'General' || cat === 'News' || !cat) {
-        if (/cricket|football|sports|match|stadium|ipl|tennis|badminton|olympics|trophy|champion|messi|ronaldo|kohli|rohit|dhoni|wicket|runs|goal|score/.test(text)) cat = 'Sports';
-        else if (/temple|devotional|god|pooja|ritual|bhagavad|gita|kashi|prashad|darshan|sloka|mantra|divine|spiritual/.test(text)) cat = 'Devotional';
-        else if (/election|modi|minister|parliament|governance|politics|political|party|vote|bjp|congress/.test(text)) cat = 'Politics';
-        else if (/market|stock|inflation|sensex|nifty|business|economy|billion|rupees|dollar|revenue/.test(text)) cat = 'Business';
-        else if (/ai|tech|chip|technology|quantum|software|apple|google|phone|cyber|data/.test(text)) cat = 'Technology';
-        else if (/movie|cinema|actor|film|box office|trailer|star|hollywood|tollywood|bollywood/.test(text)) cat = 'Entertainment';
+        if (/\b(cricket|football|sports|match|stadium|ipl|tennis|badminton|olympics|trophy|champion|messi|ronaldo|kohli|rohit|dhoni|wicket|runs|goal|score)\b/i.test(text)) cat = 'Sports';
+        else if (/\b(temple|devotional|god|pooja|ritual|bhagavad|gita|kashi|prashad|darshan|sloka|mantra|divine|spiritual)\b/i.test(text)) cat = 'Devotional';
+        else if (/\b(election|modi|minister|parliament|governance|politics|political|party|vote|bjp|congress)\b/i.test(text)) cat = 'Politics';
+        else if (/\b(market|stock|inflation|sensex|nifty|business|economy|billion|rupees|dollar|revenue)\b/i.test(text)) cat = 'Business';
+        else if (/\b(ai|tech|chip|technology|quantum|software|apple|google|phone|cyber|data)\b/i.test(text)) cat = 'Technology';
+        else if (/\b(movie|cinema|actor|film|box office|trailer|star|hollywood|tollywood|bollywood)\b/i.test(text)) cat = 'Entertainment';
       }
       item.category = cat;
       deduped.push(item);
@@ -425,6 +441,7 @@ router.get('/content/news', (req, res) => {
 
     res.json({ data: deduped });
   } catch (err) {
+    console.error('Failed to get content news:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -531,12 +548,267 @@ router.post('/reports/:id/resolve', (req, res) => {
 
 // --- CATEGORY MANAGEMENT ENDPOINTS ---
 
+// --- CATEGORY MANAGEMENT ENDPOINTS ---
+
 // GET /api/admin/categories
 router.get('/categories', (req, res) => {
   try {
-    const row = db.prepare("SELECT value FROM system_settings WHERE key = 'news_categories'").get();
-    const categories = row ? JSON.parse(row.value) : ["Politics", "Sports", "Entertainment", "Technology", "Business", "Health", "Education"];
+    const rows = db.prepare('SELECT category_name AS name FROM cms_taxonomy_categories WHERE is_visible = 1 ORDER BY sort_order ASC').all();
+    const categories = rows.length > 0 ? rows.map(r => r.name) : ["Politics", "Sports", "Entertainment", "Technology", "Business", "Health", "Education"];
     res.json({ data: categories });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- TAXONOMY CATEGORIES CRUD ENDPOINTS ---
+
+// GET /api/admin/taxonomy
+router.get('/taxonomy', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT * FROM cms_taxonomy_categories ORDER BY sort_order ASC, group_name ASC').all();
+    res.json({ data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/taxonomy
+router.post('/taxonomy', (req, res) => {
+  const { groupName, categoryName, icon, sortOrder, isVisible } = req.body || {};
+  if (!groupName || !categoryName) {
+    return res.status(400).json({ error: 'groupName and categoryName are required' });
+  }
+
+  try {
+    const id = `tax-${Date.now()}`;
+    const nowStr = new Date().toISOString();
+    const order = sortOrder !== undefined ? Number(sortOrder) : 999;
+    db.prepare(`
+      INSERT INTO cms_taxonomy_categories (id, group_name, category_name, icon, sort_order, is_visible, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, groupName, categoryName, icon || '📁', order, isVisible !== false ? 1 : 0, nowStr);
+
+    logAudit(req.user?.id || 'admin', 'Create Taxonomy Category', `${groupName} -> ${categoryName}`);
+    broadcastUpdate('taxonomy');
+    res.status(201).json({ success: true, id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/admin/taxonomy/:id
+router.put('/taxonomy/:id', (req, res) => {
+  const { groupName, categoryName, icon, sortOrder, isVisible } = req.body || {};
+  try {
+    const existing = db.prepare('SELECT * FROM cms_taxonomy_categories WHERE id = ?').get(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Category not found' });
+
+    db.prepare(`
+      UPDATE cms_taxonomy_categories SET
+        group_name = ?, category_name = ?, icon = ?, sort_order = ?, is_visible = ?
+      WHERE id = ?
+    `).run(
+      groupName || existing.group_name,
+      categoryName || existing.category_name,
+      icon !== undefined ? icon : existing.icon,
+      sortOrder !== undefined ? Number(sortOrder) : existing.sort_order,
+      isVisible !== undefined ? (isVisible ? 1 : 0) : existing.is_visible,
+      req.params.id
+    );
+
+    logAudit(req.user?.id || 'admin', 'Update Taxonomy Category', categoryName || existing.category_name);
+    broadcastUpdate('taxonomy');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/taxonomy/:id
+router.delete('/taxonomy/:id', (req, res) => {
+  try {
+    db.prepare('DELETE FROM cms_taxonomy_categories WHERE id = ?').run(req.params.id);
+    logAudit(req.user?.id || 'admin', 'Delete Taxonomy Category', req.params.id);
+    broadcastUpdate('taxonomy');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- UI LABELS & TICKER ITEMS CRUD ENDPOINTS ---
+
+// GET /api/admin/ui-labels
+router.get('/ui-labels', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT * FROM cms_ui_labels ORDER BY label_type ASC, key ASC').all();
+    res.json({ data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/ui-labels
+router.post('/ui-labels', (req, res) => {
+  const { key, labelType, value, expiryTime, isActive } = req.body || {};
+  if (!key || !value) return res.status(400).json({ error: 'key and value are required' });
+
+  try {
+    const nowStr = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO cms_ui_labels (key, label_type, value, expiry_time, is_active, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(key, labelType || 'section_title', value, expiryTime || null, isActive !== false ? 1 : 0, nowStr);
+
+    logAudit(req.user?.id || 'admin', 'Create UI Label / Ticker Item', key);
+    broadcastUpdate('ui-labels');
+    res.status(201).json({ success: true, key });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/admin/ui-labels/:key
+router.put('/ui-labels/:key', (req, res) => {
+  const { labelType, value, expiryTime, isActive } = req.body || {};
+  const itemKey = req.params.key;
+  try {
+    const existing = db.prepare('SELECT * FROM cms_ui_labels WHERE key = ?').get(itemKey);
+    const nowStr = new Date().toISOString();
+    if (existing) {
+      db.prepare(`
+        UPDATE cms_ui_labels SET
+          label_type = ?, value = ?, expiry_time = ?, is_active = ?, updated_at = ?
+        WHERE key = ?
+      `).run(
+        labelType || existing.label_type,
+        value !== undefined ? value : existing.value,
+        expiryTime !== undefined ? expiryTime : existing.expiry_time,
+        isActive !== undefined ? (isActive ? 1 : 0) : existing.is_active,
+        nowStr,
+        itemKey
+      );
+    } else {
+      db.prepare(`
+        INSERT INTO cms_ui_labels (key, label_type, value, expiry_time, is_active, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(itemKey, labelType || 'section_title', value || '', expiryTime || null, isActive !== false ? 1 : 0, nowStr);
+    }
+
+    logAudit(req.user?.id || 'admin', 'Update UI Label / Ticker Item', itemKey);
+    broadcastUpdate('ui-labels');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/ui-labels/:key
+router.delete('/ui-labels/:key', (req, res) => {
+  try {
+    db.prepare('DELETE FROM cms_ui_labels WHERE key = ?').run(req.params.key);
+    logAudit(req.user?.id || 'admin', 'Delete UI Label / Ticker Item', req.params.key);
+    broadcastUpdate('ui-labels');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- UNIVERSAL CONTENT MANAGER & MODULE MIGRATION ---
+
+// GET /api/admin/content-manager - Filterable content items across modules
+router.get('/content-manager', (req, res) => {
+  const { module: targetModule, category, region, status, search } = req.query;
+  try {
+    const newsRows = db.prepare(`
+      SELECT id, title, summary, body, category, subcategory, region, district, city, publish_status AS status, COALESCE(module, 'news') AS module, published_at AS created_at, image_url, video_url, 'news' AS source_table
+      FROM news
+    `).all();
+
+    const topStoriesRows = db.prepare(`
+      SELECT id, headline AS title, description AS summary, article AS body, category, subcategory, NULL AS region, NULL AS district, NULL AS city, status, COALESCE(module, 'top_stories') AS module, created_at, image_url, video_url, 'top_stories' AS source_table
+      FROM top_stories
+    `).all();
+
+    const reelRows = db.prepare(`
+      SELECT id, title, description AS summary, description AS body, 'Reels' AS category, NULL AS subcategory, location AS region, NULL AS district, NULL AS city, 'published' AS status, COALESCE(module, 'reels') AS module, id AS created_at, thumbnail_file AS image_url, video_file AS video_url, 'reels' AS source_table
+      FROM reels
+    `).all();
+
+    const channelRows = db.prepare(`
+      SELECT id, name AS title, now_playing AS summary, NULL AS body, category, NULL AS subcategory, NULL AS region, NULL AS district, NULL AS city, 'published' AS status, COALESCE(module, 'live_tv') AS module, id AS created_at, NULL AS image_url, video_url, 'live_tv_channels' AS source_table
+      FROM live_tv_channels
+    `).all();
+
+    const streamRows = db.prepare(`
+      SELECT id, stream_title AS title, description AS summary, description AS body, category, NULL AS subcategory, location AS region, NULL AS district, NULL AS city, stream_status AS status, COALESCE(module, 'user_streams') AS module, created_at, thumbnail_url AS image_url, recorded_video_url AS video_url, 'user_streams' AS source_table
+      FROM user_streams
+    `).all();
+
+    let allItems = [...newsRows, ...topStoriesRows, ...reelRows, ...channelRows, ...streamRows];
+
+    // Filter by module if specified
+    if (targetModule && targetModule !== 'all') {
+      allItems = allItems.filter(item => (item.module || 'news') === targetModule);
+    }
+
+    if (category && category !== 'all') {
+      allItems = allItems.filter(item => (item.category || '').toLowerCase() === category.toLowerCase());
+    }
+
+    if (region && region !== 'all') {
+      allItems = allItems.filter(item => (item.region || '').toLowerCase() === region.toLowerCase());
+    }
+
+    if (status && status !== 'all') {
+      allItems = allItems.filter(item => (item.status || 'published').toLowerCase() === status.toLowerCase());
+    }
+
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      allItems = allItems.filter(item => 
+        (item.title || '').toLowerCase().includes(q) ||
+        (item.summary || '').toLowerCase().includes(q) ||
+        (item.id || '').toLowerCase().includes(q)
+      );
+    }
+
+    res.json({ data: allItems });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT /api/admin/content-manager/:id/module - Migrate item to new module
+router.put('/content-manager/:id/module', (req, res) => {
+  const { newModule } = req.body || {};
+  const validModules = ['breaking_news', 'top_stories', 'trending_news', 'news', 'reels', 'live_tv', 'user_streams'];
+  if (!newModule || !validModules.includes(newModule)) {
+    return res.status(400).json({ error: `Valid newModule required: ${validModules.join(', ')}` });
+  }
+
+  const itemId = req.params.id;
+  try {
+    // Try updating in news table first
+    let updated = db.prepare('UPDATE news SET module = ? WHERE id = ?').run(newModule, itemId);
+    if (updated.changes === 0) {
+      updated = db.prepare('UPDATE top_stories SET module = ? WHERE id = ?').run(newModule, itemId);
+    }
+    if (updated.changes === 0) {
+      updated = db.prepare('UPDATE reels SET module = ? WHERE id = ?').run(newModule, itemId);
+    }
+    if (updated.changes === 0) {
+      updated = db.prepare('UPDATE live_tv_channels SET module = ? WHERE id = ?').run(newModule, itemId);
+    }
+    if (updated.changes === 0) {
+      updated = db.prepare('UPDATE user_streams SET module = ? WHERE id = ?').run(newModule, itemId);
+    }
+
+    logAudit(req.user?.id || 'admin', 'Migrate Content Module', `${itemId} -> ${newModule}`);
+    broadcastUpdate('content-module-migration');
+    res.json({ success: true, message: `Item migrated to ${newModule}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -698,18 +970,35 @@ router.post('/security/force-logout/:userId', (req, res) => {
 import { copyFileSync, readdirSync, unlinkSync, mkdirSync, statSync, createReadStream } from 'node:fs';
 
 // 1. News CRUD APIs
-router.post('/content/news', (req, res) => {
+router.post('/content/news', async (req, res) => {
   const { title, summary, body, category, source, imageUrl, videoUrl, readMinutes, tags, publishedAt } = req.body || {};
   if (!title) return res.status(400).json({ error: 'Title is required' });
+
+  // Run NEXUS SafeGuard Content Moderation Check
+  const aiResult = await moderateUploadContent(title, body || summary || title, null, 'None', null, null);
+  if (aiResult && !aiResult.isApproved && req.body.continueAnyway !== true) {
+    return res.status(400).json({ error: `NEXUS SafeGuard Rejection: ${aiResult.rejectReason || 'Content flagged for policy violations.'}` });
+  }
+
+  const finalTitle = (aiResult && aiResult.neutralizedTitle) || title;
+  const finalSummary = (aiResult && aiResult.neutralizedSummary) || summary || title;
+  const finalBody = (aiResult && aiResult.neutralizedText) || body || summary || title;
+  const needsBlur = (aiResult && (aiResult.needsBlur || !aiResult.isApproved)) ? 1 : 2;
+  const blurReason = (aiResult && (aiResult.blurReason || aiResult.rejectReason)) || null;
+
   try {
     const id = randomUUID();
     db.prepare(`
-      INSERT INTO news (id, title, summary, body, category, source, is_breaking, image_url, video_url, read_minutes, published_at, tags)
-      VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)
-    `).run(id, title, summary || null, body || null, category || 'General', source || 'NEXUS Network', imageUrl || null, videoUrl || null, Number(readMinutes) || 1, publishedAt || new Date().toISOString(), tags || null);
-    logAudit(req, 'Create News Article', title);
+      INSERT INTO news (id, title, summary, body, category, source, is_breaking, image_url, video_url, read_minutes, published_at, tags, needs_blur, blur_reason)
+      VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, finalTitle, finalSummary, finalBody, category || 'General', source || 'NEXUS Network',
+      imageUrl || null, videoUrl || null, Number(readMinutes) || 1, publishedAt || new Date().toISOString(),
+      tags || null, needsBlur, blurReason
+    );
+    logAudit(req, 'Create News Article (SafeGuard Verified)', finalTitle);
     broadcastUpdate('news');
-    res.status(201).json({ success: true, id });
+    res.status(201).json({ success: true, id, safeGuard: { checked: true, sanitized: !!aiResult?.neutralizedText } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

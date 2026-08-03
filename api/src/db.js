@@ -612,6 +612,55 @@ export function initSchema() {
       created_at   TEXT NOT NULL,
       updated_at   TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS rooms (
+      id               TEXT PRIMARY KEY,
+      host_id          TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      room_name        TEXT NOT NULL,
+      topic            TEXT NOT NULL,
+      description      TEXT,
+      password         TEXT,
+      invite_link      TEXT,
+      status           TEXT NOT NULL DEFAULT 'active',
+      visibility       TEXT NOT NULL DEFAULT 'public',
+      max_participants INTEGER NOT NULL DEFAULT 10,
+      created_at       TEXT NOT NULL,
+      ended_at         TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS room_participants (
+      id           TEXT PRIMARY KEY,
+      room_id      TEXT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+      user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role         TEXT NOT NULL DEFAULT 'spectator',
+      mic_enabled  INTEGER NOT NULL DEFAULT 0,
+      cam_enabled  INTEGER NOT NULL DEFAULT 0,
+      hand_raised  INTEGER NOT NULL DEFAULT 0,
+      joined_at    TEXT NOT NULL,
+      left_at      TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS live_chat_messages (
+      id            TEXT PRIMARY KEY,
+      stream_id     TEXT,
+      room_id       TEXT,
+      sender_id     TEXT NOT NULL,
+      sender_name   TEXT NOT NULL,
+      sender_avatar TEXT,
+      message       TEXT NOT NULL,
+      type          TEXT NOT NULL DEFAULT 'text',
+      is_pinned     INTEGER NOT NULL DEFAULT 0,
+      is_deleted    INTEGER NOT NULL DEFAULT 0,
+      created_at    TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS live_viewers (
+      id        TEXT PRIMARY KEY,
+      stream_id TEXT,
+      room_id   TEXT,
+      viewer_id TEXT NOT NULL,
+      joined_at TEXT NOT NULL,
+      left_at   TEXT
+    );
   `);
 
   try {
@@ -622,6 +671,15 @@ export function initSchema() {
   } catch (e) {}
   try {
     db.prepare("ALTER TABLE live_streams ADD COLUMN subtitles_url TEXT").run();
+  } catch (e) {}
+  try {
+    db.prepare("ALTER TABLE live_streams ADD COLUMN stream_key TEXT").run();
+  } catch (e) {}
+  try {
+    db.prepare("ALTER TABLE live_streams ADD COLUMN playback_url TEXT").run();
+  } catch (e) {}
+  try {
+    db.prepare("ALTER TABLE live_streams ADD COLUMN visibility TEXT DEFAULT 'public'").run();
   } catch (e) {}
 
   try {
@@ -759,6 +817,9 @@ export function initSchema() {
 
   // Safe ALTER TABLE commands for OCR, Translation, and Blur Regions
   try {
+    db.exec('ALTER TABLE posts ADD COLUMN category TEXT;');
+  } catch (e) {}
+  try {
     db.exec('ALTER TABLE news ADD COLUMN blur_regions TEXT;');
   } catch (e) {}
   try {
@@ -842,6 +903,123 @@ export function initSchema() {
   try {
     db.exec('ALTER TABLE profiles ADD COLUMN join_date TEXT;');
   } catch (e) {}
+
+  // --- STRICT SINGLE MODULE ISOLATION & TAXONOMY TABLES ---
+  try {
+    db.exec("ALTER TABLE news ADD COLUMN module TEXT DEFAULT 'news';");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE top_stories ADD COLUMN module TEXT DEFAULT 'top_stories';");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE reels ADD COLUMN module TEXT DEFAULT 'reels';");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE live_tv_channels ADD COLUMN module TEXT DEFAULT 'live_tv';");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE user_streams ADD COLUMN module TEXT DEFAULT 'user_streams';");
+  } catch (e) {}
+  try {
+    db.exec("ALTER TABLE posts ADD COLUMN module TEXT DEFAULT 'news';");
+  } catch (e) {}
+
+  // Single module migration logic: Ensure legacy records have accurate single module assignments
+  try {
+    db.exec("UPDATE news SET module = 'breaking_news' WHERE (is_breaking = 1 OR category = 'Breaking News' OR category = 'Breaking') AND (module IS NULL OR module = 'news');");
+    db.exec("UPDATE news SET module = 'trending_news' WHERE (is_trending = 1 OR category = 'Trending News' OR category = 'Trending') AND (module IS NULL OR module = 'news');");
+    db.exec("UPDATE news SET module = 'top_stories' WHERE (is_top_story = 1 OR category = 'Top Stories') AND (module IS NULL OR module = 'news');");
+    db.exec("UPDATE top_stories SET module = 'top_stories' WHERE module IS NULL;");
+    db.exec("UPDATE reels SET module = 'reels' WHERE module IS NULL;");
+    db.exec("UPDATE live_tv_channels SET module = 'live_tv' WHERE module IS NULL;");
+    db.exec("UPDATE user_streams SET module = 'user_streams' WHERE module IS NULL;");
+  } catch (e) {}
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cms_taxonomy_categories (
+      id            TEXT PRIMARY KEY,
+      group_name    TEXT NOT NULL,
+      category_name TEXT NOT NULL,
+      icon          TEXT,
+      sort_order    INTEGER DEFAULT 0,
+      is_visible    INTEGER DEFAULT 1,
+      created_at    TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS cms_ui_labels (
+      key         TEXT PRIMARY KEY,
+      label_type  TEXT NOT NULL DEFAULT 'section_title',
+      value       TEXT NOT NULL,
+      expiry_time TEXT,
+      is_active   INTEGER DEFAULT 1,
+      updated_at  TEXT NOT NULL
+    );
+  `);
+
+  // Seed default master taxonomy categories if empty
+  try {
+    const taxCount = db.prepare('SELECT COUNT(*) AS n FROM cms_taxonomy_categories').get().n;
+    if (taxCount === 0) {
+      const taxonomyGroups = [
+        { group: '📰 GENERAL & MAIN', icon: '📰', categories: ['Breaking News', 'Top Stories', 'Latest News', 'Trending News', 'National News', 'International News', 'Regional News', 'Local News'] },
+        { group: '🏛 POLITICS & GOVERNMENT', icon: '🏛', categories: ['Politics', 'Elections', 'Government Policies', 'Parliament & Legislature', 'Public Administration', 'Diplomacy'] },
+        { group: '💼 BUSINESS & ECONOMY', icon: '💼', categories: ['Business', 'Economy', 'Finance', 'Banking', 'Startups', 'Markets', 'Stock Market', 'Cryptocurrency', 'Real Estate', 'Industry'] },
+        { group: '💻 TECHNOLOGY & INNOVATION', icon: '💻', categories: ['Technology', 'Artificial Intelligence (AI)', 'Cybersecurity', 'Gadgets', 'Software', 'Internet & Social Media', 'Space Technology'] },
+        { group: '🏏 SPORTS', icon: '🏏', categories: ['Sports', 'Cricket', 'Football', 'Tennis', 'Basketball', 'Kabaddi', 'Olympics', 'Formula 1', 'Esports', 'Other Sports'] },
+        { group: '🎬 ENTERTAINMENT', icon: '🎬', categories: ['Entertainment', 'Movies', 'OTT & Streaming', 'Web Series', 'TV Shows', 'Music', 'Celebrity News', 'Box Office', 'Theatre & Arts'] },
+        { group: '🛕 DEVOTIONAL', icon: '🛕', categories: ['Temple News', 'Spiritual News', 'Hindu Dharma', 'Festivals', 'Pooja & Rituals', 'Pilgrimage', 'Devotional Songs', 'Bhajans', 'Slokas', 'Vedas & Upanishads', 'Bhagavad Gita', 'Ramayana', 'Mahabharata', 'Puranas', 'Saints & Gurus', 'Astrology', 'Panchangam', 'Daily Horoscope', 'Meditation', 'Yoga', 'Quotes & Teachings', 'Religious Events', 'Temple Festivals', 'Charity & Seva', 'Spiritual Discourses'] },
+        { group: '🏥 HEALTH & WELLNESS', icon: '🏥', categories: ['Health', 'Wellness', 'Nutrition', 'Mental Health', 'Medicine & Research', 'Healthcare Industry', 'Public Health'] },
+        { group: '📚 EDUCATION & CAREERS', icon: '📚', categories: ['Education', 'Board Exams', 'University News', 'Higher Education', 'Jobs & Careers', 'Skill Development'] },
+        { group: '🚀 SCIENCE & SPACE', icon: '🚀', categories: ['Science', 'Space Exploration', 'Astronomy', 'Physics & Chemistry', 'Biology & Genetics'] },
+        { group: '🌱 ENVIRONMENT & CLIMATE', icon: '🌱', categories: ['Climate Change', 'Environment', 'Renewable Energy', 'Wildlife & Conservation', 'Sustainability', 'Weather Updates'] },
+        { group: '⚖️ CRIME & LAW', icon: '⚖️', categories: ['Crime News', 'Judiciary & Courts', 'Law Enforcement', 'Cyber Crime', 'Legal System'] },
+        { group: '✨ LIFESTYLE & CULTURE', icon: '✨', categories: ['Lifestyle', 'Travel', 'Food & Recipes', 'Fashion', 'Automotive', 'Art & Culture', 'Books & Literature'] },
+        { group: '🌎 INTERNATIONAL & WORLD', icon: '🌎', categories: ['World News', 'Global Conflicts', 'International Relations', 'UN & Global Bodies'] },
+        { group: '⭐ SPECIAL FEATURES', icon: '⭐', categories: ['Editorial & Opinion', 'In-depth Investigations', 'Fact Check', 'Good News', 'History & Nostalgia', 'Obits'] },
+        { group: '📍 REGIONAL & LOCAL FOCUS', icon: '📍', categories: ['State-wise News', 'City Updates', 'Community Stories', 'Civic Issues'] }
+      ];
+
+      let order = 1;
+      const stmt = db.prepare('INSERT INTO cms_taxonomy_categories (id, group_name, category_name, icon, sort_order, is_visible, created_at) VALUES (?, ?, ?, ?, ?, 1, ?)');
+      const nowStr = new Date().toISOString();
+      for (const g of taxonomyGroups) {
+        for (const cat of g.categories) {
+          stmt.run(`tax-${order}`, g.group, cat, g.icon, order++, nowStr);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to seed taxonomy categories:', e);
+  }
+
+  // Seed default UI labels if empty
+  try {
+    const labelCount = db.prepare('SELECT COUNT(*) AS n FROM cms_ui_labels').get().n;
+    if (labelCount === 0) {
+      const nowStr = new Date().toISOString();
+      const defaultLabels = [
+        { key: 'section_top_stories', type: 'section_title', value: 'Top Stories' },
+        { key: 'section_trending_news', type: 'section_title', value: 'Trending News' },
+        { key: 'section_breaking_news', type: 'section_title', value: 'Breaking News' },
+        { key: 'section_live_tv', type: 'section_title', value: 'Live TV & Channels' },
+        { key: 'section_video_reels', type: 'section_title', value: 'Video Reels' },
+        { key: 'nav_home', type: 'nav_label', value: 'Home' },
+        { key: 'nav_news', type: 'nav_label', value: 'News' },
+        { key: 'nav_reels', type: 'nav_label', value: 'Reels' },
+        { key: 'nav_live', type: 'nav_label', value: 'Live' },
+        { key: 'nav_movies', type: 'nav_label', value: 'Movies' },
+        { key: 'ticker_1', type: 'ticker_item', value: 'BREAKING: Markets Plunge In Historic Global Drop Following Interest Rate Adjustments' },
+        { key: 'ticker_2', type: 'ticker_item', value: 'AP: Geopolitical Realignment Reshapes Global Trade Alliances In Landmark Economic Summit' },
+        { key: 'ticker_3', type: 'ticker_item', value: 'NDTV: Parliament Session Commences With High-Stakes Debate On Digital Privacy Legislation' }
+      ];
+      const stmt = db.prepare('INSERT INTO cms_ui_labels (key, label_type, value, expiry_time, is_active, updated_at) VALUES (?, ?, ?, null, 1, ?)');
+      for (const l of defaultLabels) {
+        stmt.run(l.key, l.type, l.value, nowStr);
+      }
+    }
+  } catch (e) {
+    console.error('Failed to seed UI labels:', e);
+  }
 }
 
 export function detectRegionAndDistrict(title = '', summary = '') {

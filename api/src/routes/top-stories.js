@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { mediaUrl, absUrl, PROJECT_ROOT } from '../config.js';
 import { getIo } from '../services/relay.js';
 import { optimizeImageJimp } from '../thumbnail-processor.js';
+import { moderateUploadContent } from '../moderation.js';
 
 export const router = Router();
 
@@ -232,6 +233,16 @@ router.post('/', async (req, res) => {
 
   if (!headline) return res.status(400).json({ error: 'Headline is required' });
 
+  // Run NEXUS SafeGuard Content Moderation Check
+  const aiResult = await moderateUploadContent(headline, article || description || headline, imageData || null, language || 'None', null, videoData || null);
+  if (aiResult && !aiResult.isApproved && req.body.continueAnyway !== true) {
+    return res.status(400).json({ error: `NEXUS SafeGuard Rejection: ${aiResult.rejectReason || 'Story content flagged for policy violations.'}` });
+  }
+
+  const finalHeadline = (aiResult && aiResult.neutralizedTitle) || headline;
+  const finalDescription = (aiResult && aiResult.neutralizedSummary) || description || headline;
+  const finalArticle = (aiResult && aiResult.neutralizedText) || article || description || headline;
+
   try {
     const storyId = randomUUID();
     const nowStr = new Date().toISOString();
@@ -270,9 +281,9 @@ router.post('/', async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?, ?)
     `).run(
       storyId,
-      headline,
-      description || null,
-      article || null,
+      finalHeadline,
+      finalDescription || null,
+      finalArticle || null,
       category || 'General',
       subcategory || null,
       language || 'English',

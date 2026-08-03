@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "app.nexusplay.flutter_client"
-    compileSdk = 34
+    compileSdk = 35
     ndkVersion = "25.1.8937393"
 
     compileOptions {
@@ -19,8 +19,8 @@ android {
         applicationId = "app.nexusplay.flutter_client"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 21
-        targetSdk = 34
+        minSdk = flutter.minSdkVersion
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
     }

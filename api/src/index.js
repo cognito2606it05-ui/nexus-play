@@ -27,6 +27,7 @@ import { router as searchRouter } from './routes/search.js';
 import { router as moderationRouter } from './routes/moderation.js';
 import { router as analyticsRouter } from './routes/analytics.js';
 import { router as liveRouter } from './routes/live-streaming.js';
+import { router as roomsRouter } from './routes/rooms.js';
 import { router as studioRouter } from './routes/studio.js';
 import { router as topStoriesRouter } from './routes/top-stories.js';
 import { startDatabaseModerationSweep } from './moderation.js';
@@ -56,6 +57,22 @@ const app = createApp({
 });
 
 app.get('/health', (req, res) => res.json({ ok: true, service: 'nexus-play-api', seed: seedResult }));
+
+// Direct Release APK download routes
+app.get('/nexus-play.apk', (req, res) => {
+  const apkPath = resolve(PROJECT_ROOT, 'mobile/dist/nexus-play.apk');
+  res.download(apkPath, 'nexus-play.apk');
+});
+
+app.get('/app-release.apk', (req, res) => {
+  const apkPath = resolve(PROJECT_ROOT, 'mobile/dist/nexus-play.apk');
+  res.download(apkPath, 'nexus-play.apk');
+});
+
+app.get('/download-apk', (req, res) => {
+  const apkPath = resolve(PROJECT_ROOT, 'mobile/dist/nexus-play.apk');
+  res.download(apkPath, 'nexus-play.apk');
+});
 
 // Public HTML proxy to bypass X-Frame-Options for external articles
 app.get('/api/news-proxy', async (req, res) => {
@@ -147,10 +164,11 @@ app.use('/api/search', searchRouter);
 app.use('/api/moderation', moderationRouter);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/live', liveRouter);
+app.use('/api/rooms', roomsRouter);
 app.use('/api/studio', studioRouter);
 
-const server = app.listen(config.port, () => {
-  console.log(`\nNEXUS Play API listening on http://localhost:${config.port}`);
+const server = app.listen(config.port, '0.0.0.0', () => {
+  console.log(`\nNEXUS Play API listening on http://0.0.0.0:${config.port} (Local Wi-Fi IP: http://192.168.29.193:${config.port})`);
   console.log(`  health:  http://localhost:${config.port}/health`);
   console.log(`  media:   http://localhost:${config.port}/media/reels/<file>`);
   if (!seedResult.skipped) console.log('  seeded:', JSON.stringify(seedResult));

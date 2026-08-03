@@ -6,11 +6,21 @@ import { API_URL } from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function RecordedLivePlayerScreen({ route, navigation }: any) {
-  const { stream } = route.params || {};
   const { colors } = useTheme();
   
-  const [streamDetails, setStreamDetails] = useState<any>(stream || null);
-  const [loading, setLoading] = useState(!stream);
+  let initialStream = route?.params?.stream;
+  if (typeof initialStream === 'string') {
+    try {
+      initialStream = JSON.parse(initialStream);
+    } catch (e) {
+      initialStream = null;
+    }
+  }
+
+  const targetId = route?.params?.streamId || route?.params?.id || (initialStream && typeof initialStream === 'object' ? initialStream.id : null);
+
+  const [streamDetails, setStreamDetails] = useState<any>(initialStream && typeof initialStream === 'object' ? initialStream : null);
+  const [loading, setLoading] = useState(!streamDetails);
   const [error, setError] = useState<string | null>(null);
   
   // Custom Player States
@@ -39,22 +49,35 @@ export default function RecordedLivePlayerScreen({ route, navigation }: any) {
   const [isLiked, setIsLiked] = useState(false);
 
   useEffect(() => {
-    if (!streamDetails && route.params?.streamId) {
-      loadStreamById(route.params.streamId);
+    if (targetId) {
+      loadStreamById(targetId);
     } else if (streamDetails) {
       loadDetailsAndComments();
+    } else {
+      setLoading(false);
+      setError('No valid video stream ID provided.');
     }
-  }, [route.params?.streamId]);
+  }, [targetId]);
 
   // Load stream details
   const loadStreamById = async (id: string) => {
     try {
+      setLoading(true);
+      setError(null);
       const res = await api.getStreams();
-      const found = res.data.find((s: any) => s.id === id);
+      const list = res?.data || (Array.isArray(res) ? res : []);
+      const found = list.find((s: any) => String(s.id) === String(id) || String(s.stream_id) === String(id));
       if (found) {
         setStreamDetails(found);
       } else {
-        setError('Recorded stream not found.');
+        try {
+          const single = await api.request<any>(`/api/streams/${id}`);
+          if (single && single.data) {
+            setStreamDetails(single.data);
+            return;
+          }
+        } catch (e) {}
+        setError('Recorded live stream not found in archives.');
       }
     } catch (e) {
       setError('Failed to load recorded video information.');
@@ -64,7 +87,8 @@ export default function RecordedLivePlayerScreen({ route, navigation }: any) {
   };
 
   const loadDetailsAndComments = async () => {
-    setLikesCount(streamDetails.total_likes || 0);
+    if (!streamDetails) return;
+    setLikesCount(streamDetails.total_likes || streamDetails.viewers || 0);
     // Fetch simulated comments
     setComments([
       { id: '1', name: 'Alisha Rao', text: 'Amazing coverage from the ground!', time: '10m ago' },
@@ -122,10 +146,15 @@ export default function RecordedLivePlayerScreen({ route, navigation }: any) {
     if (!videoRef.current) return;
     if (playing) {
       videoRef.current.pause();
+      setPlaying(false);
     } else {
-      videoRef.current.play().catch(() => setError('Video playback blocked. Please interact first.'));
+      videoRef.current.play().then(() => {
+        setPlaying(true);
+      }).catch((err) => {
+        console.warn('Autoplay prevented by browser policy:', err);
+        setPlaying(false);
+      });
     }
-    setPlaying(!playing);
   };
 
   // Track elapsed time & progress
@@ -277,7 +306,7 @@ export default function RecordedLivePlayerScreen({ route, navigation }: any) {
   }
 
   // Format playback source URL safely
-  let rawSource = streamDetails.videoUrl || streamDetails.recorded_video_url;
+  let rawSource = streamDetails.videoUrl || streamDetails.recorded_video_url || streamDetails.video_url || streamDetails.live_stream_url;
   let playbackSource = rawSource;
   if (rawSource && typeof rawSource === 'string' && rawSource.trim().startsWith('[')) {
     try {
@@ -324,6 +353,41 @@ export default function RecordedLivePlayerScreen({ route, navigation }: any) {
                   onLoadedMetadata={handleLoadedMetadata}
                   onClick={togglePlay}
                 />
+
+                {!playing && (
+                  <div
+                    onClick={togglePlay}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                      cursor: 'pointer',
+                      zIndex: 80,
+                    }}
+                  >
+                    <div style={{
+                      width: '76px',
+                      height: '76px',
+                      borderRadius: '38px',
+                      backgroundColor: '#3B82F6',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#FFFFFF',
+                      fontSize: '32px',
+                      boxShadow: '0 0 24px rgba(59, 130, 246, 0.65)',
+                      paddingLeft: '4px',
+                    }}>
+                      ▶
+                    </div>
+                  </div>
+                )}
                 
                 {/* Custom Subtitles rendering */}
                 {showSubtitles && activeSubtitle ? (

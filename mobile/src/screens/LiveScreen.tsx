@@ -399,8 +399,9 @@ export default function LiveScreen({ route }: { route?: any }) {
   const { colors, themeMode, toggleTheme, isDark } = useTheme();
   const styles = getStyles(colors);
   
-  // Tab Selection: 'channels' | 'users'
-  const [activeTab, setActiveTab] = useState<'channels' | 'users'>('channels');
+  // Tab Selection: 'channels' | 'users' | 'rooms'
+  const [activeTab, setActiveTab] = useState<'channels' | 'users' | 'rooms'>('channels');
+  const [activeDebateRooms, setActiveDebateRooms] = useState<any[]>([]);
   
   // Selected stream/channel
   const [selectedStream, setSelectedStream] = useState<any>(null);
@@ -744,9 +745,22 @@ export default function LiveScreen({ route }: { route?: any }) {
     }
   };
 
+  const fetchActiveDebateRooms = async () => {
+    try {
+      const res = await api.getActiveRooms();
+      setActiveDebateRooms(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch debate rooms:', err);
+    }
+  };
+
   useEffect(() => {
     fetchActiveStreams();
-    const interval = setInterval(fetchActiveStreams, 12000);
+    fetchActiveDebateRooms();
+    const interval = setInterval(() => {
+      fetchActiveStreams();
+      fetchActiveDebateRooms();
+    }, 12000);
     return () => clearInterval(interval);
   }, [myStream]);
 
@@ -2048,8 +2062,8 @@ export default function LiveScreen({ route }: { route?: any }) {
                           <FallbackPlayerView videoUrl={WEB_FALLBACK} />
                         )
                       ) : (
-                        (selectedStream.isOfficial || !selectedStream.isLive || selectedStream.recorded_video_url) ? (
-                          <TVChannelPlayer key={selectedStream.id} uri={selectedStream.videoUrl || selectedStream.recorded_video_url} />
+                        (selectedStream.isOfficial || !selectedStream.isLive || selectedStream.recorded_video_url || selectedStream.video_url || selectedStream.videoUrl) ? (
+                          <TVChannelPlayer key={selectedStream.id} uri={selectedStream.videoUrl || selectedStream.video_url || selectedStream.recorded_video_url || selectedStream.live_stream_url} />
                         ) : remoteStream ? (
                           <WebRTCVideo stream={remoteStream} muted={false} />
                         ) : (
@@ -2370,8 +2384,8 @@ export default function LiveScreen({ route }: { route?: any }) {
                       <FallbackPlayerView videoUrl={WEB_FALLBACK} />
                     )
                   ) : (
-                    (selectedStream.isOfficial || !selectedStream.isLive || selectedStream.recorded_video_url) ? (
-                      <TVChannelPlayer key={selectedStream.id} uri={selectedStream.videoUrl || selectedStream.recorded_video_url} />
+                    (selectedStream.isOfficial || !selectedStream.isLive || selectedStream.recorded_video_url || selectedStream.video_url || selectedStream.videoUrl) ? (
+                      <TVChannelPlayer key={selectedStream.id} uri={selectedStream.videoUrl || selectedStream.video_url || selectedStream.recorded_video_url || selectedStream.live_stream_url} />
                     ) : remoteStream ? (
                       <WebRTCVideo stream={remoteStream} muted={false} />
                     ) : (
@@ -2782,6 +2796,13 @@ export default function LiveScreen({ route }: { route?: any }) {
                 <View style={styles.pulseDot} />
                 <Text style={styles.goLiveButtonText}>Go Live (P2P)</Text>
               </HoverPressable>
+
+              <HoverPressable
+                style={[styles.goLiveButton, { backgroundColor: 'rgba(139, 92, 246, 0.2)', borderColor: '#8B5CF6' }]}
+                onPress={() => navigation.navigate('RoomLive')}
+              >
+                <Text style={[styles.goLiveButtonText, { color: '#C084FC' }]}>🎙️ Room Live (Debate)</Text>
+              </HoverPressable>
             </View>
           </View>
 
@@ -2798,15 +2819,66 @@ export default function LiveScreen({ route }: { route?: any }) {
             >
               <Text style={[styles.tabText, activeTab === 'users' && styles.tabTextActive]}>User Streams</Text>
             </HoverPressable>
+            <HoverPressable
+              style={[styles.tabButton, activeTab === 'rooms' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('rooms')}
+            >
+              <Text style={[styles.tabText, activeTab === 'rooms' && styles.tabTextActive]}>🎙️ Debate Rooms ({activeDebateRooms.length})</Text>
+            </HoverPressable>
           </View>
 
           <ScrollView style={styles.epgScroll} contentContainerStyle={styles.epgContent}>
-            {activeTab === 'channels' ? (
+            {activeTab === 'rooms' ? (
+              <View style={{ gap: 14 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <Text style={{ color: '#8B5CF6', fontSize: 13, fontWeight: '900', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                    🎙️ Active Room Live Debates ({activeDebateRooms.length})
+                  </Text>
+                  <HoverPressable
+                    style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#8B5CF6' }}
+                    onPress={() => navigation.navigate('RoomLive')}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>＋ Create / Join Room</Text>
+                  </HoverPressable>
+                </View>
+
+                {activeDebateRooms.length === 0 ? (
+                  <View style={[styles.epgRow, { backgroundColor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.06)' }]}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
+                      No active debate rooms found. Click "+ Create / Join Room" to start a new Room Live session!
+                    </Text>
+                  </View>
+                ) : (
+                  activeDebateRooms.map((room) => (
+                    <HoverPressable
+                      key={room.id}
+                      style={[styles.epgRow, { borderColor: '#8B5CF6', backgroundColor: 'rgba(139, 92, 246, 0.08)' }]}
+                      onPress={() => navigation.navigate('RoomLive', { roomId: room.id })}
+                    >
+                      <View style={[styles.epgIcon, { backgroundColor: '#8B5CF6' }]}>
+                        <Text style={styles.epgIconText}>🎙️</Text>
+                      </View>
+                      <View style={styles.epgDetails}>
+                        <Text style={styles.epgName}>{room.room_name}</Text>
+                        <Text style={styles.epgShow}>Topic: {room.topic}  ·  Host: {room.host_name}</Text>
+                      </View>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ color: '#C084FC', fontSize: 11, fontWeight: '800' }}>👥 {room.total_viewers || 1} Viewers</Text>
+                        <Text style={{ color: '#94A3B8', fontSize: 10, marginTop: 2 }}>ID: {room.id}</Text>
+                      </View>
+                    </HoverPressable>
+                  ))
+                )}
+              </View>
+            ) : activeTab === 'channels' ? (
               officialChannels.map((c) => (
                 <HoverPressable
                   key={c.id}
-                  style={styles.epgRow}
-                  onPress={() => navigation.navigate('Live', { streamId: c.id })}
+                  style={[styles.epgRow, selectedStream?.id === c.id && { borderColor: colors.primary, backgroundColor: 'rgba(59, 130, 246, 0.18)' }]}
+                  onPress={() => {
+                    setSelectedStream(c);
+                    navigation.navigate('Live', { streamId: c.id });
+                  }}
                 >
                   <View style={[styles.epgIcon, { backgroundColor: colors.primary }]}>
                     <Text style={styles.epgIconText}>{c.name.split(' ')[0]?.charAt(0) ?? 'N'}</Text>
@@ -2883,7 +2955,7 @@ export default function LiveScreen({ route }: { route?: any }) {
                         <HoverPressable
                           key={s.id}
                           style={styles.epgRow}
-                          onPress={() => navigation.navigate('RecordedLivePlayer', { stream: s })}
+                          onPress={() => navigation.navigate('RecordedLivePlayer', { id: s.id, streamId: s.id, stream: s })}
                         >
                           <View style={[styles.epgIcon, { backgroundColor: '#1E293B' }]}>
                             <Text style={styles.epgIconText}>📼</Text>

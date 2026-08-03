@@ -61,12 +61,12 @@ class AuthProvider extends ChangeNotifier {
     };
     await prefs.setString(_storageKey, jsonEncode(authData));
 
-    // If there is only one profile, select it immediately
-    if (auth.profiles.length == 1) {
-      final single = auth.profiles.first;
-      _activeProfile = single;
-      _apiClient.setActiveProfileId(single.id);
-      await prefs.setString(_activeProfileKey, single.id);
+    // Select the primary profile by default to navigate directly to Home Screen
+    if (auth.profiles.isNotEmpty) {
+      final primary = auth.profiles.first;
+      _activeProfile = primary;
+      _apiClient.setActiveProfileId(primary.id);
+      await prefs.setString(_activeProfileKey, primary.id);
     } else {
       _activeProfile = null;
       _apiClient.setActiveProfileId(null);

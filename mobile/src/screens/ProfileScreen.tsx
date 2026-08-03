@@ -739,41 +739,13 @@ export default function ProfileScreen() {
         }
       }) as any
     }}>
-      {isDesktop && <AppHeader onPressAvatar={() => {}} />}
-      {!isDesktop && (
-        <View style={{
-          position: Platform.OS === 'web' ? 'fixed' : 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 56 + (insets?.top ?? 0),
-          paddingTop: insets?.top ?? 0,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
-          borderBottomWidth: 1,
-          borderBottomColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
-          zIndex: 9999,
-          ...Platform.select({
-            web: {
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-            }
-          }) as any,
-        }}>
-          <Image
-            source={require('../../assets/nexuslogo.png')}
-            style={{ width: 85, height: 26 }}
-            resizeMode="contain"
-          />
-        </View>
-      )}
+      <AppHeader onPressAvatar={() => navigation.navigate('Profile')} />
       <ThreeDForestBg />
       <ScrollView 
         style={[styles.container, { backgroundColor: 'transparent' }]}
         contentContainerStyle={{ 
           paddingBottom: Math.max((insets?.bottom ?? 0) + 80, 110), 
-          paddingTop: isDesktop ? 96 : (56 + (insets?.top ?? 0)) 
+          paddingTop: Math.max((insets?.top ?? 0), 12) + 74
         }}
       >
         {/* COVER PHOTO SECTION */}
@@ -1801,7 +1773,7 @@ export default function ProfileScreen() {
         onRequestClose={() => setSelectedContent(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxWidth: 600, width: '90%', height: '80%', padding: 0, overflow: 'hidden' }]}>
+          <View style={[styles.modalContent, { maxWidth: 550, width: '90%', maxHeight: Platform.OS === 'web' ? '85vh' : '85%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }]}>
             {/* Header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)', backgroundColor: isDark ? '#1E293B' : '#F8FAFC' }}>
               <Text style={{ fontSize: 15, fontWeight: '900', color: isDark ? '#F8FAFC' : '#0F172A', fontFamily: 'Outfit', textTransform: 'uppercase' }}>
@@ -1818,19 +1790,31 @@ export default function ProfileScreen() {
             {/* Scrollable Content */}
             <ScrollView style={{ flex: 1, backgroundColor: isDark ? '#0F172A' : '#FFFFFF' }} contentContainerStyle={{ padding: 20 }}>
               {selectedContent?.type === 'reel' && (
-                <View>
-                  <View style={{ width: '100%', aspectRatio: 0.6, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000', marginBottom: 16 }}>
+                <View style={{ alignItems: 'center' }}>
+                  <View style={{ 
+                    width: '100%', 
+                    height: 380, 
+                    maxHeight: 380,
+                    borderRadius: 16, 
+                    overflow: 'hidden', 
+                    backgroundColor: '#000', 
+                    marginBottom: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
                     <MoviePlayer uri={selectedContent.videoUrl || selectedContent.video_file || ''} styles={{ modalVideo: { width: '100%', height: '100%' } }} />
                   </View>
-                  <Text style={{ fontSize: 18, fontWeight: '900', color: isDark ? '#F8FAFC' : '#0F172A', fontFamily: 'Outfit', marginBottom: 8 }}>
-                    {selectedContent.title}
-                  </Text>
-                  <Text style={{ fontSize: 13, color: isDark ? '#94A3B8' : '#64748B', fontFamily: 'Outfit', marginBottom: 12 }}>
-                    by {selectedContent.creator?.handle || 'creator'} · {selectedContent.stats?.views || 0} Views
-                  </Text>
-                  <Text style={{ fontSize: 14, color: isDark ? '#CBD5E1' : '#334155', fontFamily: 'Outfit', lineHeight: 20 }}>
-                    {selectedContent.description}
-                  </Text>
+                  <View style={{ width: '100%' }}>
+                    <Text style={{ fontSize: 18, fontWeight: '900', color: isDark ? '#F8FAFC' : '#0F172A', fontFamily: 'Outfit', marginBottom: 8 }}>
+                      {selectedContent.title}
+                    </Text>
+                    <Text style={{ fontSize: 13, color: isDark ? '#94A3B8' : '#64748B', fontFamily: 'Outfit', marginBottom: 12 }}>
+                      by {selectedContent.creator?.handle || 'creator'} · {selectedContent.stats?.views || 0} Views
+                    </Text>
+                    <Text style={{ fontSize: 14, color: isDark ? '#CBD5E1' : '#334155', fontFamily: 'Outfit', lineHeight: 20 }}>
+                      {selectedContent.description}
+                    </Text>
+                  </View>
                 </View>
               )}
 
