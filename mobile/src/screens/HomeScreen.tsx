@@ -1646,22 +1646,7 @@ export default function HomeScreen() {
                 </HoverPressable>
               ))}
 
-              {/* Room Live Debate Room Launcher Bubble */}
-              <HoverPressable
-                style={styles.storyItem}
-                onPress={() => navigation.navigate('RoomLive')}
-              >
-                <View style={styles.storyRingContainer}>
-                  <View style={[styles.storyRingReel, { borderColor: '#3B82F6' }]} />
-                  <View style={[styles.storyAvatarInside, { backgroundColor: '#3B82F6' }]}>
-                    <Text style={[styles.storyAvatarText, { fontSize: 18 }]}>🎙️</Text>
-                  </View>
-                  <View style={[styles.storyLiveBadge, { backgroundColor: '#3B82F6' }]}>
-                    <Text style={styles.storyLiveBadgeText}>DEBATE</Text>
-                  </View>
-                </View>
-                <Text style={styles.storyLabel} numberOfLines={1}>Room Live</Text>
-              </HoverPressable>
+
 
               {/* Reels Shortcuts */}
               {reels.map((reel) => (
