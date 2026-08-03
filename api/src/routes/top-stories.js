@@ -149,7 +149,7 @@ router.get('/public', (req, res) => {
       imageUrl: item.image_url ? absUrl(req, item.image_url) : null,
       thumbnailUrl: item.thumbnail_url ? absUrl(req, item.thumbnail_url) : null,
       videoUrl: item.video_url ? absUrl(req, item.video_url) : null,
-      galleryUrls: item.gallery_urls ? JSON.parse(item.gallery_urls).map((url: string) => absUrl(req, url)) : [],
+      galleryUrls: item.gallery_urls ? JSON.parse(item.gallery_urls).map(url => absUrl(req, url)) : [],
       publishedAt: item.publish_date || item.created_at,
       readMinutes: item.priority || 3
     }));
