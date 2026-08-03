@@ -12,6 +12,15 @@ interface CarouselProps {
   onPressStory?: (id: string) => void;
 }
 
+const fixMediaUrl = (url?: string) => {
+  if (!url) return 'https://picsum.photos/seed/news/800/450';
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (typeof window !== 'undefined' && window.location && window.location.origin) {
+    return `${window.location.origin}${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+  return url;
+};
+
 export function TopStoriesCarousel({ data, loading, onPressStory }: CarouselProps) {
   const navigation = useNavigation<any>();
   const { colors, isDark } = useTheme();
@@ -336,7 +345,7 @@ function WebMarquee({ data, cardWidth, gap, colors, isDark, navigation, onPressS
                 item.needsBlur && Platform.OS === 'web' && { filter: 'blur(20px)', WebkitFilter: 'blur(20px)' } as any
               ]}>
                 <LazyImage 
-                  source={{ uri: item.imageUrl }} 
+                  source={{ uri: fixMediaUrl(item.imageUrl) }} 
                   style={styles.cardImage as any} 
                   blurRadius={item.needsBlur ? 20 : 0}
                 />
@@ -461,7 +470,7 @@ function MobileCarousel({ data, cardWidth, gap, colors, isDark, navigation, onPr
               item.needsBlur && Platform.OS === 'web' && { filter: 'blur(20px)', WebkitFilter: 'blur(20px)' } as any
             ]}>
               <LazyImage 
-                source={{ uri: item.imageUrl }} 
+                source={{ uri: fixMediaUrl(item.imageUrl) }} 
                 style={styles.cardImage as any} 
                 blurRadius={item.needsBlur ? 20 : 0}
               />
