@@ -136,7 +136,7 @@ export function createApp({ staticMounts = [], spaFallback = null } = {}) {
     if (!ctype.includes('application/json')) { req.body = {}; return; }
     const chunks = [];
     let size = 0;
-    const MAX_BODY = 50 * 1024 * 1024; // 50 MB for video uploads
+    const MAX_BODY = 150 * 1024 * 1024; // 150 MB for high-res video uploads
     for await (const c of req) {
       size += c.length;
       if (size > MAX_BODY) throw new Error('Payload too large');

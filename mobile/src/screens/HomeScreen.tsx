@@ -671,25 +671,19 @@ export default function HomeScreen() {
         logoText: (c.name && typeof c.name === 'string') ? (c.name.split(' ')[0]?.charAt(0) || 'N') : 'N',
       }));
       
-      const userStreams = (streamsRes.data || []).map((s: any) => ({
-        id: s.id || `user-${Math.random()}`,
-        name: s.profile_name || s.name || 'User Live',
-        category: s.category || 'General',
-        now: s.title || s.now || 'Live Broadcast',
-        viewers: s.viewers || 0,
-        isOfficial: false,
-        logoText: '👤',
-      }));
+      const userStreams = (streamsRes.data || [])
+        .filter((s: any) => s.isLive === true && s.profile_name !== 'Official Live TV Channel')
+        .map((s: any) => ({
+          id: s.id || `user-${Math.random()}`,
+          name: s.profile_name || s.name || 'User Live',
+          category: s.category || 'General',
+          now: s.title || s.now || 'Live Broadcast',
+          viewers: s.viewers || 0,
+          isOfficial: false,
+          logoText: '👤',
+        }));
       
       let allStreams = [...userStreams, ...officialChannels];
-      if (allStreams.length === 0) {
-        allStreams = [
-          { id: 'off-1', name: 'Official Live TV', category: 'News', now: 'Breaking Live Broadcast', viewers: 1420, isOfficial: true, logoText: '📡' },
-          { id: 'off-2', name: 'Official Live TV 2', category: 'News', now: '24/7 Global Stream', viewers: 980, isOfficial: true, logoText: '📺' },
-          { id: 'off-3', name: 'User 7999', category: 'General', now: 'Debate Room', viewers: 430, isOfficial: false, logoText: '👤' },
-          { id: 'off-4', name: 'Demo Profile', category: 'Entertainment', now: 'Tech Discussion', viewers: 215, isOfficial: false, logoText: '👤' },
-        ];
-      }
       setLiveStreams(allStreams);
       setStories(storiesRes.data || []);
       
@@ -720,8 +714,10 @@ export default function HomeScreen() {
             id: 'c0a36806-4ce7-4519-b262-66b726ce80ab',
             title: 'WhatsApp Image 2026 07 30 at 15.49.48',
             summary: 'Godavari district devotional updates and special temple pooja rituals.',
+            body: 'Godavari district devotional updates and special temple pooja rituals.',
             category: 'General',
             source: 'NEXUS Network',
+            isBreaking: false,
             imageUrl: '/media/uploads/1785497334162_WhatsApp_Image_2026-07-30_at_15.45.44.jpeg',
             publishedAt: '2026-07-31T11:28:58.023Z',
             readMinutes: 2
@@ -730,8 +726,10 @@ export default function HomeScreen() {
             id: 'godavari-devotional-story',
             title: 'godavari',
             summary: 'Special prayers and spiritual gatherings on the banks of Godavari river.',
+            body: 'Special prayers and spiritual gatherings on the banks of Godavari river.',
             category: 'Devotional',
             source: 'NEXUS Network',
+            isBreaking: false,
             imageUrl: '/media/uploads/1785401097366_WhatsApp_Image_2026-07-30_at_11.22.56__1_.jpeg',
             publishedAt: '2026-07-30T08:45:00.899Z',
             readMinutes: 3
@@ -740,8 +738,10 @@ export default function HomeScreen() {
             id: 'cricket-sports-story',
             title: 'cricket',
             summary: 'High stakes match coverage and live tournament statistics.',
+            body: 'High stakes match coverage and live tournament statistics.',
             category: 'Sports',
             source: 'NEXUS Network',
+            isBreaking: false,
             imageUrl: '/media/uploads/1785564361196_spt3.jpeg',
             publishedAt: '2026-08-01T06:06:04.839Z',
             readMinutes: 4
@@ -750,8 +750,10 @@ export default function HomeScreen() {
             id: 'gold-rates-story',
             title: 'gold',
             summary: 'Latest market trends, bullion prices and gold rate updates across major cities.',
+            body: 'Latest market trends, bullion prices and gold rate updates across major cities.',
             category: 'Business',
             source: 'NEXUS Network',
+            isBreaking: false,
             imageUrl: '/media/uploads/1785651082062_gen5.jpeg',
             publishedAt: '2026-08-02T06:11:25.438Z',
             readMinutes: 5
@@ -1542,55 +1544,20 @@ export default function HomeScreen() {
             <StorySkeleton />
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
-              {/* Your Story / + Add Story bubble */}
-              <HoverPressable
-                style={styles.storyItem}
-                onPress={handleYourStoryPress}
-              >
-                <View style={styles.storyRingContainer}>
-                  <View style={[styles.storyRingReel, { borderColor: '#10B981', borderStyle: 'dashed' }]} />
-                  <View style={[styles.storyAvatarInside, { backgroundColor: '#10B981' }]}>
-                    <Text style={[styles.storyAvatarText, { fontSize: 24 }]}>+</Text>
+              {/* Your Story / + Add Story Bubble */}
+              <HoverPressable style={styles.storyItem} onPress={handleYourStoryPress}>
+                <View style={[styles.storyRingContainer, { borderWidth: 2, borderColor: '#10B981', borderStyle: 'dashed', borderRadius: 32 }]}>
+                  <View style={[styles.storyAvatarInside, { backgroundColor: 'rgba(16, 185, 129, 0.12)' }]}>
+                    <Text style={{ fontSize: 24, color: '#10B981', fontWeight: '900' }}>＋</Text>
                   </View>
-                  <View style={[styles.storyLiveBadge, { backgroundColor: '#10B981' }]}>
-                    <Text style={styles.storyLiveBadgeText}>ADD</Text>
+                  <View style={{ position: 'absolute', bottom: -2, backgroundColor: '#10B981', borderRadius: 10, paddingHorizontal: 5, paddingVertical: 1 }}>
+                    <Text style={{ color: '#fff', fontSize: 8, fontWeight: '900' }}>ADD</Text>
                   </View>
                 </View>
                 <Text style={styles.storyLabel} numberOfLines={1}>Your Story</Text>
               </HoverPressable>
 
-              {/* Active Stories from other creators */}
-              {stories.map((storyGroup) => {
-                const isOwnGroup = storyGroup.profileId === activeProfile?.id;
-                if (isOwnGroup) return null; // Rendered under Your Story
-                return (
-                  <HoverPressable
-                    key={`story-group-${storyGroup.profileId}`}
-                    style={styles.storyItem}
-                    onPress={() => handleOpenStoryGroup(storyGroup)}
-                  >
-                    <View style={styles.storyRingContainer}>
-                      <View style={[styles.storyRingReel, { borderColor: '#FF007F' }]} />
-                      {storyGroup.avatarUrl ? (
-                        <Image
-                          source={{ uri: storyGroup.avatarUrl }}
-                          style={styles.storyAvatarImage}
-                        />
-                      ) : (
-                        <View style={[styles.storyAvatarInside, { backgroundColor: storyGroup.color }]}>
-                          <Text style={styles.storyAvatarText}>{storyGroup.name.charAt(0)}</Text>
-                        </View>
-                      )}
-                      <View style={[styles.storyLiveBadge, { backgroundColor: '#FF007F' }]}>
-                        <Text style={styles.storyLiveBadgeText}>STORY</Text>
-                      </View>
-                    </View>
-                    <Text style={styles.storyLabel} numberOfLines={1}>{storyGroup.name}</Text>
-                  </HoverPressable>
-                );
-              })}
-
-              {/* Active Live Streams */}
+              {/* Active Live Streams & Official TV Channels */}
               {liveStreams.map((stream) => (
                 <HoverPressable
                   key={stream.id}
@@ -1618,15 +1585,15 @@ export default function HomeScreen() {
                 </HoverPressable>
               ))}
 
-              {/* Room Live Debate Room Launcher Bubble */}
+              {/* Debate Room Live Shortcut */}
               <HoverPressable
                 style={styles.storyItem}
-                onPress={() => navigation.navigate('RoomLive')}
+                onPress={() => navigation.navigate('RoomLive' as any)}
               >
                 <View style={styles.storyRingContainer}>
-                  <View style={[styles.storyRingReel, { borderColor: '#3B82F6' }]} />
+                  <View style={[styles.storyRingLive, { borderColor: '#3B82F6' }]} />
                   <View style={[styles.storyAvatarInside, { backgroundColor: '#3B82F6' }]}>
-                    <Text style={[styles.storyAvatarText, { fontSize: 18 }]}>🎙️</Text>
+                    <Text style={{ fontSize: 20 }}>🎙️</Text>
                   </View>
                   <View style={[styles.storyLiveBadge, { backgroundColor: '#3B82F6' }]}>
                     <Text style={styles.storyLiveBadgeText}>DEBATE</Text>
@@ -1635,29 +1602,24 @@ export default function HomeScreen() {
                 <Text style={styles.storyLabel} numberOfLines={1}>Room Live</Text>
               </HoverPressable>
 
-              {/* Reels Shortcuts */}
-              {reels.map((reel) => (
+              {/* User Published Stories */}
+              {stories.map((storyGroup) => (
                 <HoverPressable
-                  key={reel.id}
+                  key={storyGroup.profileId}
                   style={styles.storyItem}
-                  onPress={() => navigation.navigate('Reels', { initialReelId: reel.id })}
+                  onPress={() => handleOpenStoryGroup(storyGroup)}
                 >
                   <View style={styles.storyRingContainer}>
-                    <View style={[styles.storyRingReel, { borderColor: colors.primary }]} />
-                    <Image
-                      source={{ uri: reel.thumbnailUrl || `https://picsum.photos/seed/${reel.id}/150/150` }}
-                      style={styles.storyAvatarImage}
-                    />
-                    <View style={styles.storyReelBadge}>
-                      <Text style={styles.storyReelBadgeText}>▶</Text>
-                    </View>
-                    <View style={styles.storyVerifiedBadge}>
-                      <Text style={styles.storyVerifiedText}>✓</Text>
-                    </View>
+                    <View style={[styles.storyRingLive, { borderColor: colors.primary }]} />
+                    {storyGroup.profileAvatar ? (
+                      <Image source={{ uri: storyGroup.profileAvatar }} style={styles.storyAvatarImage} />
+                    ) : (
+                      <View style={[styles.storyAvatarInside, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.storyAvatarText}>{(storyGroup.profileName || 'U').charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )}
                   </View>
-                  <Text style={styles.storyLabel} numberOfLines={1}>
-                    @{reel.creator?.handle || reel.creator?.name || 'creator'}
-                  </Text>
+                  <Text style={styles.storyLabel} numberOfLines={1}>@{storyGroup.profileName || 'user'}</Text>
                 </HoverPressable>
               ))}
             </ScrollView>
@@ -2381,17 +2343,6 @@ export default function HomeScreen() {
 
           <View style={styles.quickMenuDivider} />
 
-          {(user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'editor') && (
-            <HoverPressable 
-              style={styles.quickMenuOption} 
-              onPress={() => {
-                setShowProfileMenu(false);
-                navigation.navigate('TopStoriesAdmin');
-              }}
-            >
-              <Text style={[styles.quickMenuOptionText, { color: '#3B82F6', fontWeight: '800' }]}>🎛️ Top Stories CMS</Text>
-            </HoverPressable>
-          )}
 
           {user?.role === 'super_admin' && (
             <HoverPressable 
@@ -2631,7 +2582,7 @@ export default function HomeScreen() {
         <View style={{
           width: '90%',
           maxWidth: 550,
-          maxHeight: Platform.OS === 'web' ? '85vh' : '85%',
+          maxHeight: '85%',
           backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
           borderRadius: 24,
           borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
@@ -3257,7 +3208,7 @@ const getStyles = (colors: any) => StyleSheet.create({
     zIndex: 10,
   },
   headerLogo: {
-    width: 180,
+    width: 150,
     height: 48,
     ...Platform.select({
       web: {

@@ -12,17 +12,16 @@ const getWebOrigin = () => {
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
     return window.location.origin;
   }
-  return 'http://localhost:9001';
+  return 'http://46.28.44.54:9001';
 };
 
 const linking = {
   prefixes: [
     getWebOrigin(),
+    'http://46.28.44.54:9001',
     'http://localhost:9001',
     'http://localhost:8081',
     'http://localhost:5000',
-    'http://localhost:4000',
-    'http://localhost:3000',
     'nexusplay://'
   ],
   config: {

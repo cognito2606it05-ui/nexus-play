@@ -449,8 +449,20 @@ router.get('/content/news', (req, res) => {
 // GET /api/admin/content/reels
 router.get('/content/reels', (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM reels ORDER BY id DESC').all();
-    res.json({ data: rows });
+    const rows = db.prepare(`
+      SELECT r.*, c.name AS creator_name, c.handle, c.avatar_file
+      FROM reels r
+      LEFT JOIN creators c ON c.id = r.creator_id
+      ORDER BY r.id DESC
+    `).all();
+
+    const formatted = rows.map(r => ({
+      ...r,
+      videoUrl: r.video_file ? (r.video_file.startsWith('http') ? r.video_file : mediaUrl(req, 'reels', r.video_file)) : null,
+      thumbnailUrl: r.thumbnail_file ? (r.thumbnail_file.startsWith('http') ? r.thumbnail_file : mediaUrl(req, 'uploads', r.thumbnail_file)) : mediaUrl(req, 'uploads', 'default-reels-thumbnail.jpg')
+    }));
+
+    res.json({ data: formatted });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -470,7 +482,12 @@ router.get('/content/posts', (req, res) => {
 router.get('/content/live-streams', (req, res) => {
   try {
     const rows = db.prepare('SELECT * FROM user_streams ORDER BY started_at DESC').all();
-    res.json({ data: rows });
+    const formatted = rows.map(s => ({
+      ...s,
+      videoUrl: s.recorded_video_url ? (s.recorded_video_url.startsWith('http') ? s.recorded_video_url : absUrl(req, s.recorded_video_url)) : null,
+      recorded_video_url: s.recorded_video_url ? (s.recorded_video_url.startsWith('http') ? s.recorded_video_url : absUrl(req, s.recorded_video_url)) : null
+    }));
+    res.json({ data: formatted });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -499,6 +516,127 @@ router.delete('/content/:type/:id', (req, res) => {
 
     logAudit(req.user?.id || 'admin', `Delete Content (${type})`, id);
     res.json({ success: true, message: 'Item deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/admin/bulk-import - Bulk import or replace JSON data array
+router.post('/bulk-import', (req, res) => {
+  const { target, mode, items } = req.body || {};
+  if (!target || !Array.isArray(items)) {
+    return res.status(400).json({ error: 'target and items array are required' });
+  }
+
+  try {
+    if (mode === 'replace') {
+      if (target === 'news') db.prepare('DELETE FROM news').run();
+      else if (target === 'posts') db.prepare('DELETE FROM posts').run();
+      else if (target === 'reels') db.prepare('DELETE FROM reels').run();
+      else if (target === 'top_stories') db.prepare('DELETE FROM top_stories').run();
+    }
+
+    const nowStr = new Date().toISOString();
+    let count = 0;
+
+    for (const item of items) {
+      const id = item.id || randomUUID();
+      if (target === 'news') {
+        db.prepare(`
+          INSERT INTO news (id, title, summary, body, category, source, is_breaking, image_url, video_url, read_minutes, published_at, region, district)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          id,
+          item.title || item.headline || 'Untitled News',
+          item.summary || item.description || '',
+          item.body || item.article || item.title || '',
+          item.category || 'General',
+          item.source || 'NEXUS Network',
+          item.isBreaking ? 1 : 0,
+          item.imageUrl || item.image_url || '/media/uploads/default-news-thumbnail.jpg',
+          item.videoUrl || item.video_url || null,
+          Number(item.readMinutes) || 5,
+          item.publishedAt || item.published_at || nowStr,
+          item.region || 'AP',
+          item.district || 'All Districts'
+        );
+        count++;
+      } else if (target === 'reels') {
+        let creator = db.prepare('SELECT id FROM creators LIMIT 1').get();
+        const creatorId = creator ? creator.id : randomUUID();
+        db.prepare(`
+          INSERT INTO reels (id, creator_id, video_file, title, description, duration, likes, comments, shares, views, sort_order, location, thumbnail_file)
+          VALUES (?, ?, ?, ?, ?, 0, ?, ?, 0, ?, 1, ?, ?)
+        `).run(
+          id,
+          creatorId,
+          item.video_file || item.videoUrl || 'VID-20260618-WA0007.mp4',
+          item.title || 'Untitled Reel',
+          item.description || item.summary || '',
+          Number(item.likes) || 120,
+          Number(item.comments) || 15,
+          Number(item.views) || 1500,
+          item.location || 'Global',
+          item.thumbnail_file || item.thumbnailUrl || 'default-reels-thumbnail.jpg'
+        );
+        count++;
+      } else if (target === 'posts') {
+        let profile = db.prepare('SELECT id FROM profiles LIMIT 1').get();
+        const profileId = profile ? profile.id : randomUUID();
+        db.prepare(`
+          INSERT INTO posts (id, profile_id, content, image_url, video_url, location, likes_count, comments_count, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          id,
+          profileId,
+          item.content || item.title || item.body || '',
+          item.imageUrl || item.image_url || null,
+          item.videoUrl || item.video_url || null,
+          item.location || null,
+          Number(item.likes) || 0,
+          Number(item.comments) || 0,
+          nowStr
+        );
+        count++;
+      } else if (target === 'top_stories') {
+        db.prepare(`
+          INSERT INTO top_stories (id, headline, description, article, category, source, image_url, video_url, is_breaking, is_top_story, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?)
+        `).run(
+          id,
+          item.headline || item.title || 'Untitled Top Story',
+          item.description || item.summary || '',
+          item.article || item.body || '',
+          item.category || 'General',
+          item.source || 'NEXUS Wire',
+          item.imageUrl || item.image_url || '/media/uploads/top_story_1.jpg',
+          item.videoUrl || item.video_url || null,
+          nowStr
+        );
+        count++;
+      }
+    }
+
+    logAudit(req.user?.id || 'admin', `Bulk Import (${target} - ${mode})`, `Imported ${count} items`);
+    res.json({ success: true, count, message: `Successfully ${mode === 'replace' ? 'replaced' : 'imported'} ${count} ${target} items!` });
+  } catch (err) {
+    console.error('Bulk import error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE /api/admin/content/clear-all/:target
+router.delete('/content/clear-all/:target', (req, res) => {
+  const { target } = req.params;
+  try {
+    if (target === 'news') db.prepare('DELETE FROM news').run();
+    else if (target === 'posts') db.prepare('DELETE FROM posts').run();
+    else if (target === 'reels') db.prepare('DELETE FROM reels').run();
+    else if (target === 'top_stories') db.prepare('DELETE FROM top_stories').run();
+    else return res.status(400).json({ error: 'Invalid target collection' });
+
+    logAudit(req.user?.id || 'admin', `Clear All Collection (${target})`, target);
+    res.json({ success: true, message: `Cleared all items from ${target}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1090,6 +1228,21 @@ router.delete('/live-tv/channels/:id', (req, res) => {
 });
 
 // 3. Reporter Reviews and Approvals
+router.get('/reporters', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT u.id, u.email, u.display_name, u.role, u.created_at, p.avatar_url, p.name AS profile_name
+      FROM users u
+      LEFT JOIN profiles p ON p.user_id = u.id
+      WHERE u.role IN ('reporter', 'news_reader', 'super_admin', 'admin')
+      ORDER BY u.created_at DESC
+    `).all();
+    res.json({ data: rows });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/reporters/:id/approve', (req, res) => {
   try {
     db.prepare("UPDATE users SET role = 'reporter' WHERE id = ?").run(req.params.id);

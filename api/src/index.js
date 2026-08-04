@@ -56,7 +56,15 @@ const app = createApp({
   spaFallback: WEB_DIST,
 });
 
+import { getIo } from './services/relay.js';
+
 app.get('/health', (req, res) => res.json({ ok: true, service: 'nexus-play-api', seed: seedResult }));
+
+app.get('/api/admin/trigger-reload', (req, res) => {
+  const io = getIo();
+  if (io) io.emit('app_updated');
+  res.json({success: true});
+});
 
 // Direct Release APK download routes
 app.get('/nexus-play.apk', (req, res) => {

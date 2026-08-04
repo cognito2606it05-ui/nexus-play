@@ -1203,11 +1203,6 @@ export default function ProfileScreen() {
                           <Text style={{ color: '#ffd24a', fontWeight: 'bold' }}>🚀 Upgrade to Premium Membership</Text>
                         </HoverPressable>
                       )}
-                      {user?.role === 'super_admin' && (
-                        <HoverPressable style={[styles.aboutActionBtn, { borderColor: colors.accent }]} onPress={handleOpenAdminPanel}>
-                          <Text style={{ color: colors.accent, fontWeight: 'bold' }}>📊 Open Admin Control Center</Text>
-                        </HoverPressable>
-                      )}
                       <HoverPressable style={[styles.aboutActionBtn, { borderColor: '#EF4444' }]} onPress={switchProfile}>
                         <Text style={{ color: '#EF4444', fontWeight: 'bold' }}>👥 Switch Active Profile</Text>
                       </HoverPressable>
@@ -1773,7 +1768,7 @@ export default function ProfileScreen() {
         onRequestClose={() => setSelectedContent(null)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxWidth: 550, width: '90%', maxHeight: Platform.OS === 'web' ? '85vh' : '85%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }]}>
+          <View style={[styles.modalContent, { maxWidth: 550, width: '90%', maxHeight: '85%', padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }]}>
             {/* Header */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)', backgroundColor: isDark ? '#1E293B' : '#F8FAFC' }}>
               <Text style={{ fontSize: 15, fontWeight: '900', color: isDark ? '#F8FAFC' : '#0F172A', fontFamily: 'Outfit', textTransform: 'uppercase' }}>

@@ -584,13 +584,6 @@ export function AppHeader({ onPressAvatar, scrollY, onSearch, onRefresh, onCreat
               </Pressable>
             </Animated.View>
 
-            {/* Admin Portal Direct Trigger */}
-            <Pressable 
-              onPress={() => navigation.navigate('SuperAdminDashboard')}
-              style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, backgroundColor: '#3B82F6', flexDirection: 'row', alignItems: 'center', gap: 4 }}
-            >
-              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>👑 Admin</Text>
-            </Pressable>
 
 
             {/* Language Translator */}
@@ -885,8 +878,9 @@ const styles = StyleSheet.create({
     }) as any,
   },
   logoImage: {
-    width: 110,
-    height: 40,
+    width: 150,
+    height: 48,
+    resizeMode: 'contain',
     ...Platform.select({
       web: {
         objectFit: 'contain' as any,

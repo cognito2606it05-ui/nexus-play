@@ -4104,7 +4104,7 @@ const getStyles = (colors: any, insets: any, width: number) => {
   articleModalContainer: {
     width: '90%',
     maxWidth: 720,
-    height: Platform.OS === 'web' ? '85vh' : '85%',
+    height: '85%',
     maxHeight: '85%',
     backgroundColor: colors.bg,
     borderRadius: 20,

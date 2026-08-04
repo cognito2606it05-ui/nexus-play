@@ -198,9 +198,37 @@ router.post('/upload', async (req, res) => {
     const filename = `user-reel-${reelId}.mp4`;
     const filepath = resolve(PROJECT_ROOT, 'Ai videos', filename);
     
-    // Save base64 string to file
-    const buffer = Buffer.from(videoData, 'base64');
-    writeFileSync(filepath, buffer);
+    // Save video file: handle file path/URL vs raw base64 string
+    if (typeof videoData === 'string' && videoData.includes('/uploads/')) {
+      const parts = videoData.split('/uploads/');
+      const sourceFilename = parts[parts.length - 1];
+      const sourcePath = resolve(PROJECT_ROOT, 'uploads', sourceFilename);
+      if (existsSync(sourcePath)) {
+        copyFileSync(sourcePath, filepath);
+      } else {
+        const cleanBase64 = videoData.replace(/^data:video\/\w+;base64,/, '').replace(/^data:application\/\w+;base64,/, '');
+        const buffer = Buffer.from(cleanBase64, 'base64');
+        writeFileSync(filepath, buffer);
+      }
+    } else if (typeof videoData === 'string' && (videoData.startsWith('http://') || videoData.startsWith('https://'))) {
+      const parts = videoData.split('/');
+      const sourceFilename = parts[parts.length - 1];
+      const sourcePath = resolve(PROJECT_ROOT, 'uploads', sourceFilename);
+      const altPath = resolve(PROJECT_ROOT, 'Ai videos', sourceFilename);
+      if (existsSync(sourcePath)) {
+        copyFileSync(sourcePath, filepath);
+      } else if (existsSync(altPath)) {
+        copyFileSync(altPath, filepath);
+      } else {
+        const cleanBase64 = videoData.replace(/^data:video\/\w+;base64,/, '').replace(/^data:application\/\w+;base64,/, '');
+        const buffer = Buffer.from(cleanBase64, 'base64');
+        writeFileSync(filepath, buffer);
+      }
+    } else {
+      const cleanBase64 = String(videoData).replace(/^data:video\/\w+;base64,/, '').replace(/^data:application\/\w+;base64,/, '');
+      const buffer = Buffer.from(cleanBase64, 'base64');
+      writeFileSync(filepath, buffer);
+    }
 
     // Save thumbnail if provided, otherwise schedule background extraction
     let thumbnailFile = null;
@@ -297,6 +325,25 @@ router.post('/upload', async (req, res) => {
       finalTranslatedText,
       finalNeutralizedText,
       thumbnailFile
+    );
+
+    // Also insert into user_streams table for universal replay support
+    const streamVideoUrl = `/media/reels/${filename}`;
+    db.prepare(`
+      INSERT OR REPLACE INTO user_streams 
+      (id, user_id, profile_id, stream_title, description, category, stream_type, stream_status, live_stream_url, recorded_video_url, duration, started_at, total_views, peak_viewers, recording_status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'General', 'public', 'completed', ?, ?, 30, ?, 0, 0, 'Completed', ?, ?)
+    `).run(
+      reelId,
+      req.user?.id || 'system',
+      req.profile?.id || 'p1',
+      (aiResult && aiResult.optimizedHeadline) || title,
+      description || '',
+      streamVideoUrl,
+      streamVideoUrl,
+      Date.now(),
+      new Date().toISOString(),
+      new Date().toISOString()
     );
 
     const newReel = db.prepare(`

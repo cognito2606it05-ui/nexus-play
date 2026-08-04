@@ -151,6 +151,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
   const [auditLogsList, setAuditLogsList] = useState<any[]>([]);
   const [mediaFiles, setMediaFiles] = useState<any[]>([]);
   const [liveRecordingsList, setLiveRecordingsList] = useState<any[]>([]);
+  const [reelsList, setReelsList] = useState<any[]>([]);
 
   // Analytics KPIs
   const [kpis, setKpis] = useState({
@@ -293,6 +294,9 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
       } else if (activeTab === 'channels') {
         const res = await api.request<any>('/api/live/channels');
         if (res) setChannelList(res);
+      } else if (activeTab === 'reels') {
+        const res = await api.request<any>('/api/admin/content/reels');
+        if (res && res.data) setReelsList(res.data);
       } else if (activeTab === 'reporters') {
         const res = await api.request<any>('/api/admin/users');
         if (res && res.data) {
@@ -543,8 +547,8 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
           body: JSON.stringify({
             ...payload,
             module: globalUploadType,
-            isBreaking: globalUploadType === 'breaking_news' ? 1 : 0,
-            isTrending: globalUploadType === 'trending_news' ? 1 : 0,
+            isBreaking: (globalUploadType as string) === 'breaking_news' ? 1 : 0,
+            isTrending: (globalUploadType as string) === 'trending_news' ? 1 : 0,
           }),
         });
       }
@@ -1849,6 +1853,94 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                   </View>
                 )}
 
+                {/* 3.1 VIDEO REELS MODULE MANAGEMENT */}
+                {activeTab === 'reels' && (
+                  <View>
+                    <View style={styles.actionHeader}>
+                      <Text style={styles.sectionHeader}>🎬 Video Reels Catalog ({reelsList.length})</Text>
+                      <Pressable
+                        style={styles.addBtn}
+                        onPress={() => {
+                          setGlobalUploadType('reels');
+                          setShowGlobalUploadModal(true);
+                        }}
+                      >
+                        <Text style={styles.addBtnText}>+ Upload Video Reel</Text>
+                      </Pressable>
+                    </View>
+
+                    <View style={styles.table}>
+                      <View style={styles.thRow}>
+                        <Text style={[styles.th, { flex: 2.5 }]}>Reel / Preview</Text>
+                        <Text style={[styles.th, { flex: 1.2 }]}>Creator</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Location</Text>
+                        <Text style={[styles.th, { flex: 1 }]}>Engagement</Text>
+                        <Text style={[styles.th, { flex: 1.5, textAlign: 'right' }]}>Actions</Text>
+                      </View>
+                      {reelsList.length === 0 ? (
+                        <View style={{ padding: 24, alignItems: 'center' }}>
+                          <Text style={{ color: '#64748B', fontSize: 13, fontWeight: '700' }}>No video reels found.</Text>
+                        </View>
+                      ) : (
+                        reelsList.map((reel: any) => (
+                          <View key={reel.id} style={styles.trRow}>
+                            <View style={{ flex: 2.5, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                              <View style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: '#1E293B', overflow: 'hidden', justifyContent: 'center', alignItems: 'center' }}>
+                                {reel.thumbnailUrl || reel.thumbnail_file ? (
+                                  <Image source={{ uri: reel.thumbnailUrl || (reel.thumbnail_file?.startsWith('http') ? reel.thumbnail_file : `${API_URL}/media/uploads/${reel.thumbnail_file}`) }} style={{ width: '100%', height: '100%' }} />
+                                ) : (
+                                  <Text style={{ fontSize: 20 }}>🎬</Text>
+                                )}
+                              </View>
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.tdText, { fontWeight: '700', color: '#0F172A' }]} numberOfLines={1}>{reel.title || 'Untitled Reel'}</Text>
+                                <Text style={{ color: '#64748B', fontSize: 10 }} numberOfLines={1}>{reel.description || 'No description'}</Text>
+                              </View>
+                            </View>
+
+                            <Text style={[styles.tdText, { flex: 1.2, fontWeight: '700', color: '#1E293B' }]} numberOfLines={1}>
+                              {reel.creator?.name || reel.creator_name || 'Broadcaster'}
+                            </Text>
+
+                            <Text style={[styles.tdText, { flex: 1, color: '#2563EB' }]} numberOfLines={1}>
+                              {reel.location || 'Global'}
+                            </Text>
+
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ color: '#059669', fontSize: 11, fontWeight: '800' }}>👁️ {reel.stats?.views || reel.views || 0}</Text>
+                              <Text style={{ color: '#DC2626', fontSize: 10, fontWeight: '800' }}>❤️ {reel.stats?.likes || reel.likes || 0}</Text>
+                            </View>
+
+                            <View style={[styles.tdActions, { flex: 1.5 }]}>
+                              <Pressable
+                                style={[styles.actionPill, { backgroundColor: '#3B82F6', borderColor: '#3B82F6', paddingHorizontal: 10, paddingVertical: 4 }]}
+                                onPress={() => {
+                                  setPlayingRecording({
+                                    id: reel.id,
+                                    title: reel.title,
+                                    description: reel.description,
+                                    videoUrl: reel.videoUrl || (reel.video_file?.startsWith('http') ? reel.video_file : `${API_URL}/media/reels/${reel.video_file}`),
+                                    recorded_video_url: reel.videoUrl || (reel.video_file?.startsWith('http') ? reel.video_file : `${API_URL}/media/reels/${reel.video_file}`),
+                                  });
+                                  setShowVideoPlayerModal(true);
+                                }}
+                              >
+                                <Text style={[styles.actionPillText, { color: '#fff' }]}>▶ Play</Text>
+                              </Pressable>
+                              <Pressable
+                                style={[styles.iconBtn, { backgroundColor: 'rgba(239,68,68,0.15)' }]}
+                                onPress={() => handleDeleteItem(`/api/admin/content/reels/${reel.id}`, reel.id)}
+                              >
+                                <Text style={{ color: '#EF4444' }}>🗑️</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  </View>
+                )}
+
                 {/* 3.5 LIVE STREAM RECORDINGS & ARCHIVES */}
                 {(activeTab === 'liveRecordings' || activeTab === 'userStreams') && (
                   <View>
@@ -2107,7 +2199,7 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                                 setGlobalUploadTitle(file.filename.split('.')[0].replace(/[-_]/g, ' '));
                                 if (isVideo) {
                                   setGlobalUploadVideoUrl(fileUrl);
-                                  setGlobalUploadType('reel');
+                                  setGlobalUploadType('reels');
                                 } else {
                                   setGlobalUploadMediaUrl(fileUrl);
                                   setGlobalUploadThumbnailUrl(fileUrl);
@@ -3085,23 +3177,35 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
             </View>
 
             <ScrollView contentContainerStyle={{ padding: 16 }}>
-              {playingRecording && (
-                <View style={{ gap: 12 }}>
-                  <View style={{ width: '100%', height: 380, backgroundColor: '#000', borderRadius: 8, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' }}>
-                    {Platform.OS === 'web' ? (
-                      <video
-                        src={playingRecording.videoUrl || playingRecording.recorded_video_url || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'}
-                        controls
-                        autoPlay
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      />
-                    ) : (
-                      <View style={{ alignItems: 'center' }}>
-                        <Text style={{ color: '#0F172A', fontSize: 14 }}>Playing stream video:</Text>
-                        <Text style={{ color: '#3B82F6', fontSize: 12, marginTop: 4 }}>{playingRecording.videoUrl || playingRecording.recorded_video_url}</Text>
-                      </View>
-                    )}
-                  </View>
+              {playingRecording && (() => {
+                const rawUrl = playingRecording.videoUrl || playingRecording.recorded_video_url || playingRecording.video_url || playingRecording.video_file || '';
+                let videoSrc = rawUrl;
+                if (rawUrl && !rawUrl.startsWith('http://') && !rawUrl.startsWith('https://')) {
+                  if (rawUrl.startsWith('/media/')) {
+                    videoSrc = `${API_URL}${rawUrl}`;
+                  } else if (rawUrl.startsWith('user-reel-') || rawUrl.startsWith('VID-')) {
+                    videoSrc = `${API_URL}/media/reels/${rawUrl}`;
+                  } else {
+                    videoSrc = `${API_URL}/media/uploads/${rawUrl.replace(/^\//, '')}`;
+                  }
+                }
+                return (
+                  <View style={{ gap: 12 }}>
+                    <View style={{ width: '100%', height: 380, backgroundColor: '#000', borderRadius: 8, overflow: 'hidden', justifyContent: 'center', alignItems: 'center' }}>
+                      {Platform.OS === 'web' ? (
+                        <video
+                          src={videoSrc || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'}
+                          controls
+                          autoPlay
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        />
+                      ) : (
+                        <View style={{ alignItems: 'center' }}>
+                          <Text style={{ color: '#0F172A', fontSize: 14 }}>Playing stream video:</Text>
+                          <Text style={{ color: '#3B82F6', fontSize: 12, marginTop: 4 }}>{videoSrc}</Text>
+                        </View>
+                      )}
+                    </View>
 
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#F8FAFC', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' }}>
                     <View>
@@ -3121,7 +3225,8 @@ export default function SuperAdminDashboardScreen({ navigation }: any) {
                     </View>
                   </View>
                 </View>
-              )}
+              );
+              })()}
             </ScrollView>
           </View>
         </View>

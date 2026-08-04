@@ -321,7 +321,8 @@ export default function RecordedLivePlayerScreen({ route, navigation }: any) {
   if (!playbackSource || playbackSource === 'null' || playbackSource === 'undefined') {
     playbackSource = `${API_URL}/media/uploads/intro.mp4`;
   } else if (playbackSource && !playbackSource.startsWith('http') && !playbackSource.startsWith('blob:') && !playbackSource.startsWith('data:')) {
-    playbackSource = `${API_URL}/media/uploads/${playbackSource.split('/').pop()}`;
+    const cleanPath = playbackSource.startsWith('/') ? playbackSource : `/${playbackSource}`;
+    playbackSource = `${API_URL}${cleanPath}`;
   }
 
   return (
@@ -348,6 +349,7 @@ export default function RecordedLivePlayerScreen({ route, navigation }: any) {
                 <video
                   ref={videoRef}
                   src={playbackSource}
+                  controls
                   style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}

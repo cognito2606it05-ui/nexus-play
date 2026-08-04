@@ -573,7 +573,7 @@ export default function RoomLiveScreen() {
 
           {/* DYNAMIC RESPONSIVE VIDEO GRID */}
           {activeRoom && (
-            <View ref={videoGridRef} style={[{ flex: 1, backgroundColor: '#000', borderRadius: 16, overflow: 'hidden', padding: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', alignItems: 'center', position: 'relative' }, isFullscreen && { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, borderRadius: 0 }]}>
+            <View ref={videoGridRef} style={[{ flex: 1, backgroundColor: '#000', borderRadius: 16, overflow: 'hidden', padding: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', alignItems: 'center', position: 'relative' }, isFullscreen && ({ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99999, borderRadius: 0 } as any)]}>
               
               {/* TOP RIGHT FULLSCREEN BUTTON */}
               <HoverPressable

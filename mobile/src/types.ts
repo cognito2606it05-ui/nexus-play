@@ -95,6 +95,7 @@ export interface NewsItem {
   reporter?: string;
   thumbnail?: string;
   video?: string | null;
+  tags?: string;
   needsBlur?: boolean;
   blurReason?: string | null;
   blurRegions?: any[];
